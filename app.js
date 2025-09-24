@@ -333,14 +333,27 @@ function ViewSeparar() {
     const history = getHistory().filter(r => r.finalizeMode === 'total');
     const finalizedIds = new Set(history.map(r => r.orderId));
     const partialIds = new Set(getSeparations().filter(s => s.finalizeMode === 'parcial' && s.finishedAt).map(s => s.orderId));
-    let results = getOrders().filter(o => (!vOp || o.id.toUpperCase().includes(vOp)) && (!vProd || o.productCode.toUpperCase().includes(vProd)));
+    // Primeiro filtra por busca (OP/Produto) e remove finalizadas
+    let results = getOrders().filter(o => 
+      (!vOp || o.id.toUpperCase().includes(vOp)) && 
+      (!vProd || o.productCode.toUpperCase().includes(vProd)) &&
+      !finalizedIds.has(o.id) // Remove finalizadas de todos os filtros
+    );
+    
     if (separarFilter === 'parcial') {
+      // Apenas OPs com separação parcial (não finalizadas)
       results = results.filter(o => partialIds.has(o.id));
-    } else if (separarFilter === 'separar') {
-      // Mostrar apenas OPs ativas (não finalizadas)
-      results = results.filter(o => !finalizedIds.has(o.id));
+    } else if (separarFilter === 'sem-separacao') {
+      // Apenas OPs sem nenhum item separado (não finalizadas)
+      const separations = getSeparations();
+      results = results.filter(o => {
+        const sep = separations.find(s => s.orderId === o.id);
+        if (!sep) return true; // OP sem separação iniciada
+        // OP com separação iniciada mas sem itens confirmados
+        return sep.items.every(item => !item.confirmed);
+      });
     } else {
-      // todas: mantém todas; nada a filtrar
+      // todas: mantém todas as OPs ativas (não finalizadas)
     }
     if (!results.length) {
       list.appendChild(el('div', { class: 'op-item' }, [
@@ -353,11 +366,22 @@ function ViewSeparar() {
         el('div', {}, [
           el('div', { style: 'font-weight:600' }, `${o.id} • ${o.productCode}`),
           el('div', { class: 'muted' }, o.productDesc),
-          (finalizedIds.has(o.id) ? el('div', { class: 'status-chip status-ok' }, 'Finalizada') : (partialIds.has(o.id) ? el('div', { class: 'status-chip status-pend' }, 'Separação Parcial') : null))
+          (() => {
+            // Como finalizadas foram removidas, só mostra status para parciais
+            if (partialIds.has(o.id)) {
+              return el('div', { class: 'status-chip status-pend' }, 'Separação Parcial');
+            }
+            // Para "Sem Separação", verifica se tem separação iniciada mas sem itens confirmados
+            if (separarFilter === 'sem-separacao') {
+              const sep = getSeparations().find(s => s.orderId === o.id);
+              if (sep && sep.items.some(item => item.confirmed)) {
+                return el('div', { class: 'status-chip status-sub' }, 'Em Andamento');
+              }
+            }
+            return null;
+          })()
         ]),
-        el('div', {}, finalizedIds.has(o.id)
-          ? (() => { const rec = history.find(h => h.orderId === o.id); return el('button', { class: 'btn btn-ghost', onclick: () => openReport(rec) }, 'Relatório'); })()
-          : el('button', { class: 'btn', onclick: () => openChecklist(o.id) }, 'Abrir Checklist'))
+        el('div', {}, el('button', { class: 'btn', onclick: () => openChecklist(o.id) }, 'Abrir Checklist'))
       ]));
     }
   }
@@ -688,7 +712,7 @@ function ViewDDP354() {
         el('ul', {}, [
           el('li', {}, 'Autenticação do operador (responsável por todas as ações).'),
           el('li', {}, 'Busca e seleção de OP por código ou por produto.'),
-          el('li', {}, 'Filtros na busca: Todas, Parciais, Separar (ativas).'),
+          el('li', {}, 'Filtros na busca: Todas, Parciais, Sem Separação (ativas).'),
           el('li', {}, 'Checklist de materiais (código, depósito, localização, qtde, descrição, unidade).'),
           el('li', {}, 'Confirmação item a item (check) com rastreabilidade (operador e timestamp).'),
           el('li', {}, 'Seleção de itens alternativos pré-cadastrados, com busca e registro de substituição.'),
@@ -745,7 +769,7 @@ function ViewDDP354() {
           el('li', {}, 'Item do checklist: baseCode, currentCode, descrição, unidade, localização, quantidade, confirmado, substitution, confirmedBy, confirmedAt.'),
           el('li', {}, 'Sessão: operador (usuário, nome, loginAt).'),
           el('li', {}, 'Separação: orderId, productCode, productDesc, operator, startedAt, finishedAt, finalizeMode, items.'),
-          el('li', {}, 'Filtros: separarFilter (todas/parcial/separar).'),
+          el('li', {}, 'Filtros: separarFilter (todas/parcial/sem-separacao).'),
         ])
       ]),
       el('div', {}, [

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeepMES - Separação de Materiais (Simulação)</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app-root" class="app-root">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="logo">T</div>
+                <div class="brand-text">
+                    <div class="brand-title">TeepMES</div>
+                    <div class="brand-subtitle">Facchini • Separação</div>
+                </div>
+            </div>
+            <nav class="menu">
+                <button class="menu-item" data-route="#/separar">Separar Materiais</button>
+                <button class="menu-item" data-route="#/parciais">Ordens com Separação Parcial</button>
+                <button class="menu-item" data-route="#/finalizadas">Separações Finalizadas</button>
+                <button class="menu-item" data-route="#/relatorios">Relatórios</button>
+                <button class="menu-item" data-route="#/ddp354">DDP 354</button>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="operator-box">
+                    <div class="op-name" id="op-name">Não autenticado</div>
+                    <button id="btn-logout" class="btn btn-ghost small" hidden>Sair</button>
+                </div>
+            </div>
+        </aside>
+        <main class="main">
+            <header class="topbar">
+                <div class="top-title">DDP – Separação e Validação de Materiais</div>
+                <div class="top-actions">
+                    <button id="btn-open-login" class="btn" title="Entrar">Entrar</button>
+                </div>
+            </header>
+            <section id="view-container" class="view-container">
+                <!-- Views renderizadas via JS -->
+            </section>
+        </main>
+    </div>
+
+    <!-- Dialogs -->
+    <dialog id="dialog-login" class="dialog">
+        <form method="dialog" class="card form" id="login-form">
+            <h3>Login do Operador</h3>
+            <p class="muted" id="login-hint">Demonstração: usuário <b>operador</b> • senha <b>1234</b></p>
+            <div id="login-error" style="color:#dc2626; font-size:13px; display:none;">Usuário ou senha inválidos.</div>
+            <label>
+                <span>Usuário</span>
+                <input type="text" id="login-user" required placeholder="ex.: operador">
+            </label>
+            <label>
+                <span>Senha</span>
+                <input type="password" id="login-pass" required placeholder="••••••">
+            </label>
+            <div class="actions">
+                <button class="btn btn-ghost" value="cancel">Cancelar</button>
+                <button class="btn" id="btn-do-login" value="default">Entrar</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog id="dialog-alternativos" class="dialog">
+        <div class="card">
+            <div class="dialog-header">
+                <h3>Selecionar Item Alternativo</h3>
+                <button class="btn btn-ghost" id="alt-close">Fechar</button>
+            </div>
+            <div class="alt-search">
+                <input id="alt-search-input" type="text" placeholder="Buscar por código ou descrição">
+            </div>
+            <div id="alt-list" class="list"></div>
+        </div>
+    </dialog>
+
+    <dialog id="dialog-confirm" class="dialog">
+        <div class="card">
+            <h3 id="confirm-title">Confirmar</h3>
+            <p id="confirm-message"></p>
+            <div class="actions">
+                <button class="btn btn-ghost" id="confirm-cancel">Cancelar</button>
+                <button class="btn" id="confirm-ok">OK</button>
+            </div>
+        </div>
+    </dialog>
+
+    <script src="app.js?v=20250924-01"></script>
+    <script>
+        // Navegação do menu lateral (hash routing)
+        document.querySelectorAll('.menu-item').forEach(b=>{
+            b.addEventListener('click', ()=> location.hash = b.dataset.route);
+        });
+    </script>
+</body>
+</html>
+
+

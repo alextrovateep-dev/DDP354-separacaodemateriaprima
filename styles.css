@@ -133,6 +133,27 @@ input::placeholder { color: #9ca3af; }
 .two-col { display: grid; grid-template-columns: 1fr 380px; gap: 16px; align-items: start; }
 .sticky { position: sticky; top: 16px; }
 
+/* Estilos para itens bloqueados */
+.btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+input[type="checkbox"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.table tr.locked {
+  background-color: #f9f9f9;
+  opacity: 0.7;
+}
+
+.table tr.locked td {
+  color: #666;
+}
+
 @media (max-width: 980px) {
   .app-root { grid-template-columns: 80px 1fr; }
   .brand-text { display: none; }

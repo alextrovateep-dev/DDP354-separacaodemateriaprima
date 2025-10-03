@@ -31,7 +31,7 @@ function seedMockData() {
   /** Mock OPs */
   const orders = [
     {
-      id: 'OP-1001', productCode: 'PROD-AX12', productDesc: 'Carroceria Modelo AX12', status: 'ativa',
+      id: 'OP-1001', productCode: 'PROD-AX12', productDesc: 'Carroceria Modelo AX12', operacao: 'CORTE', status: 'ativa',
       requiredItems: [
         { code: 'MAT-0001', quantity: 4 },
         { code: 'MAT-0002', quantity: 20 },
@@ -40,11 +40,27 @@ function seedMockData() {
       ]
     },
     {
-      id: 'OP-1002', productCode: 'PROD-BX20', productDesc: 'Carroceria Modelo BX20', status: 'ativa',
+      id: 'OP-1002', productCode: 'PROD-BX20', productDesc: 'Carroceria Modelo BX20', operacao: 'SOLDAGEM', status: 'ativa',
       requiredItems: [
         { code: 'MAT-0001', quantity: 2 },
         { code: 'MAT-0002', quantity: 10 },
         { code: 'MAT-0003', quantity: 10 },
+      ]
+    },
+    {
+      id: 'OP-1003', productCode: 'PROD-CX15', productDesc: 'Carroceria Modelo CX15', operacao: 'CORTE', status: 'ativa',
+      requiredItems: [
+        { code: 'MAT-0001', quantity: 3 },
+        { code: 'MAT-0002', quantity: 15 },
+        { code: 'MAT-0004', quantity: 15 },
+      ]
+    },
+    {
+      id: 'OP-1004', productCode: 'PROD-DX30', productDesc: 'Carroceria Modelo DX30', operacao: 'MONTAGEM', status: 'ativa',
+      requiredItems: [
+        { code: 'MAT-0002', quantity: 25 },
+        { code: 'MAT-0003', quantity: 25 },
+        { code: 'MAT-0004', quantity: 25 },
       ]
     },
   ];
@@ -200,7 +216,8 @@ function buildChecklistFromOrder(orderId) {
       description: item?.description ?? req.code,
       alternatives: alternatives[req.code] || [],
       confirmed: false,
-      substitution: null
+      substitution: null,
+      locked: false // Campo para bloquear edição
     };
   });
   return items;
@@ -219,6 +236,12 @@ function ensureSeparation(orderId) {
     rec = partials[0];
     rec.finishedAt = null;
     delete rec.finalizeMode;
+    // Bloquear itens já confirmados em separações parciais
+    rec.items.forEach(item => {
+      if (item.confirmed) {
+        item.locked = true;
+      }
+    });
     saveSeparations(sep);
     return rec;
   }
@@ -228,6 +251,7 @@ function ensureSeparation(orderId) {
     orderId,
     productCode: order?.productCode,
     productDesc: order?.productDesc,
+    operacao: order?.operacao,
     operator: Session.operator?.username,
     startedAt: nowIso(),
     finishedAt: null,
@@ -257,7 +281,22 @@ function finalizeSeparation(orderId, mode) {
       if (order) {
         rec.productCode = order.productCode;
         rec.productDesc = order.productDesc;
+        rec.operacao = order.operacao;
       }
+    }
+    // Bloquear itens conforme o modo de finalização
+    if (mode === 'total') {
+      // Finalização total: bloquear todos os itens
+      rec.items.forEach(item => {
+        item.locked = true;
+      });
+    } else if (mode === 'parcial') {
+      // Finalização parcial: bloquear apenas itens já confirmados
+      rec.items.forEach(item => {
+        if (item.confirmed) {
+          item.locked = true;
+        }
+      });
     }
   });
 }
@@ -282,6 +321,10 @@ function ViewSeparar() {
       el('label', {}, [
         el('span', {}, 'Código do Produto'),
         el('input', { id: 'inp-prod', placeholder: 'ex.: PROD-AX12' })
+      ]),
+      el('label', {}, [
+        el('span', {}, 'Operação'),
+        el('input', { id: 'inp-operacao', placeholder: 'ex.: CORTE, SOLDAGEM' })
       ]),
       el('div', {}, el('button', { class: 'btn', id: 'btn-buscar', onclick: onBuscar }, 'Buscar'))
     ]),
@@ -328,15 +371,17 @@ function ViewSeparar() {
   function onBuscar() {
     const vOp = document.getElementById('inp-op').value.trim().toUpperCase();
     const vProd = document.getElementById('inp-prod').value.trim().toUpperCase();
+    const vOperacao = document.getElementById('inp-operacao').value.trim().toUpperCase();
     const list = document.getElementById('op-list');
     list.innerHTML = '';
     const history = getHistory().filter(r => r.finalizeMode === 'total');
     const finalizedIds = new Set(history.map(r => r.orderId));
     const partialIds = new Set(getSeparations().filter(s => s.finalizeMode === 'parcial' && s.finishedAt).map(s => s.orderId));
-    // Primeiro filtra por busca (OP/Produto) e remove finalizadas
+    // Primeiro filtra por busca (OP/Produto/Operação) e remove finalizadas
     let results = getOrders().filter(o => 
       (!vOp || o.id.toUpperCase().includes(vOp)) && 
       (!vProd || o.productCode.toUpperCase().includes(vProd)) &&
+      (!vOperacao || (o.operacao || '').toUpperCase().includes(vOperacao)) &&
       !finalizedIds.has(o.id) // Remove finalizadas de todos os filtros
     );
     
@@ -364,7 +409,7 @@ function ViewSeparar() {
     for (const o of results) {
       list.appendChild(el('div', { class: 'op-item' }, [
         el('div', {}, [
-          el('div', { style: 'font-weight:600' }, `${o.id} • ${o.productCode}`),
+          el('div', { style: 'font-weight:600' }, `${o.id} • ${o.productCode} • ${o.operacao || 'N/A'}`),
           el('div', { class: 'muted' }, o.productDesc),
           (() => {
             // Como finalizadas foram removidas, só mostra status para parciais
@@ -408,7 +453,7 @@ function ViewChecklist(orderId) {
     return el('div', { class: 'card grid' }, [
       el('div', { style: 'display:flex; justify-content:space-between; align-items:center' }, [
         el('div', {}, [
-          el('div', { style: 'font-weight:700' }, `${order.id} • ${order.productCode}`),
+          el('div', { style: 'font-weight:700' }, `${order.id} • ${order.productCode} • ${order.operacao || 'N/A'}`),
           el('div', { class: 'muted' }, order.productDesc),
           el('div', { class: 'muted' }, `Início: ${fmtDateTime(separation.startedAt)} | Operador: ${Session.operator?.name}`),
         ]),
@@ -444,10 +489,16 @@ function ViewChecklist(orderId) {
     for (const [idx, it] of separation.items.entries()) {
       console.log('[checklist] row', idx, it.currentCode, 'confirmed=', it.confirmed);
       const dep = (it.location || '').split('/')[0].trim();
-      const tr = el('tr');
+      const tr = el('tr', { class: it.locked ? 'locked' : '' });
       const chk = el('input', { type: 'checkbox' });
       chk.checked = it.confirmed;
+      chk.disabled = it.locked; // Bloquear checkbox se item está locked
       chk.addEventListener('change', () => {
+        if (it.locked) {
+          console.log('[checklist] item locked, ignoring toggle');
+          chk.checked = it.confirmed; // Reverter mudança
+          return;
+        }
         console.log('[checklist] toggle item', idx, '=>', chk.checked);
         updateSeparation(orderId, rec => {
           rec.items[idx].confirmed = chk.checked;
@@ -461,7 +512,11 @@ function ViewChecklist(orderId) {
         });
         rerender();
       });
-      const btnAlt = el('button', { class: 'btn btn-ghost small', onclick: () => chooseAlternative(idx) }, 'Alternativos');
+      const btnAlt = el('button', { 
+        class: it.locked ? 'btn btn-ghost small disabled' : 'btn btn-ghost small', 
+        onclick: () => it.locked ? null : chooseAlternative(idx),
+        disabled: it.locked
+      }, 'Alternativos');
       tr.appendChild(el('td', {}, [chk, ' ', it.currentCode]));
       tr.appendChild(el('td', {}, dep));
       tr.appendChild(el('td', {}, it.location));
@@ -644,7 +699,7 @@ function ViewParciais() {
       const counts = { total: s.items.length, confirmed: s.items.filter(i => i.confirmed).length };
       list.appendChild(el('div', { class: 'op-item' }, [
         el('div', {}, [
-          el('div', { style: 'font-weight:600' }, `${order.id} • ${order.productCode}`),
+          el('div', { style: 'font-weight:600' }, `${order.id} • ${order.productCode} • ${order.operacao || 'N/A'}`),
           el('div', { class: 'muted' }, order.productDesc),
           el('div', { class: 'muted' }, `Início: ${fmtDateTime(s.startedAt)} | Última finalização: ${fmtDateTime(s.finishedAt)}`),
           el('div', { class: 'muted' }, `Progresso: ${counts.confirmed}/${counts.total} (parcial)`),
@@ -717,9 +772,11 @@ function ViewDDP354() {
           el('li', {}, 'Confirmação item a item (check) com rastreabilidade (operador e timestamp).'),
           el('li', {}, 'Seleção de itens alternativos pré-cadastrados, com busca e registro de substituição.'),
           el('li', {}, 'Finalização Total (100% confirmados) e Finalização Parcial (pendentes).'),
+          el('li', {}, 'Bloqueio de edição após finalização (total/parcial) para garantir integridade dos dados.'),
+          el('li', {}, 'Filtro por operação na busca de OPs (CORTE, SOLDAGEM, MONTAGEM).'),
           el('li', {}, 'Consulta de Separações Parciais (retomar) e Finalizadas (histórico).'),
           el('li', {}, 'Relatórios detalhados: separados vs pendentes, alternativos, rastreabilidade.'),
-          el('li', {}, 'Exportação CSV e impressão de relatórios.'),
+          el('li', {}, 'Impressão de relatórios.'),
         ])
       ]),
       el('div', {}, [
@@ -766,16 +823,17 @@ function ViewDDP354() {
         el('h4', {}, '7. Dados e Estados'),
         el('ul', {}, [
           el('li', {}, 'OP: id, produto (código/descrição), status.'),
-          el('li', {}, 'Item do checklist: baseCode, currentCode, descrição, unidade, localização, quantidade, confirmado, substitution, confirmedBy, confirmedAt.'),
+          el('li', {}, 'Item do checklist: baseCode, currentCode, descrição, unidade, localização, quantidade, confirmado, substitution, confirmedBy, confirmedAt, locked.'),
           el('li', {}, 'Sessão: operador (usuário, nome, loginAt).'),
-          el('li', {}, 'Separação: orderId, productCode, productDesc, operator, startedAt, finishedAt, finalizeMode, items.'),
+          el('li', {}, 'Separação: orderId, productCode, productDesc, operacao, operator, startedAt, finishedAt, finalizeMode, items.'),
           el('li', {}, 'Filtros: separarFilter (todas/parcial/sem-separacao).'),
+          el('li', {}, 'Campo operacao na OP para filtro e identificação (CORTE, SOLDAGEM, MONTAGEM).'),
         ])
       ]),
       el('div', {}, [
         el('h4', {}, '8. Roadmap / Próximos Passos (sugestão)'),
         el('ul', {}, [
-          el('li', {}, '✅ Impressão/Exportação de relatórios (PDF/CSV) - IMPLEMENTADO.'),
+          el('li', {}, '✅ Impressão de relatórios - IMPLEMENTADO.'),
           el('li', {}, 'Scanner de código de barras/QR para confirmar itens.'),
           el('li', {}, 'Reserva/baixa de estoque integrada ao ERP no fechamento.'),
           el('li', {}, 'Dashboard com métricas de separação (tempo médio, eficiência).'),
@@ -827,7 +885,7 @@ function ViewFinalizadas() {
       const order = getOrders().find(o => o.id === r.orderId) || { productCode: r.productCode, productDesc: r.productDesc };
       list.appendChild(el('div', { class: 'op-item' }, [
         el('div', {}, [
-          el('div', { style: 'font-weight:600' }, `${r.orderId} • ${order.productCode}`),
+          el('div', { style: 'font-weight:600' }, `${r.orderId} • ${order.productCode} • ${order.operacao || 'N/A'}`),
           el('div', { class: 'muted' }, order.productDesc),
           el('div', { class: 'muted' }, `Finalizada: ${fmtDateTime(r.finishedAt)} | Operador: ${r.operator}`),
         ]),
@@ -912,7 +970,6 @@ function ViewRelatorios() {
   const actions = el('div', { class: 'card' }, [
     el('div', { style: 'display:flex; gap:8px; align-items:center; flex-wrap:wrap' }, [
       el('button', { class: 'btn', onclick: () => printSelected() }, 'Imprimir selecionadas'),
-      el('button', { class: 'btn btn-ghost', onclick: () => exportCSV() }, 'Exportar CSV'),
       el('span', { id: 'rcount', class: 'muted' }, ''),
       el('span', { class: 'muted', style: 'margin-left:12px' }, 'Itens: '),
       (() => { const c = el('input', { type: 'checkbox', id: 'ritemsSel' }); return el('label', { style: 'display:flex; gap:6px; align-items:center' }, [c, el('span', {}, 'somente selecionadas')]); })()
@@ -1000,27 +1057,6 @@ function ViewRelatorios() {
     openLongReport(blocks.join('\n\n\n'));
   }
 
-  function exportCSV() {
-    const type = document.getElementById('rtype').value;
-    const records = (type === 'final' ? getHistory().filter(r => r.finalizeMode === 'total') : getSeparations().filter(r => r.finalizeMode === 'parcial' && r.finishedAt));
-    const rows = [];
-    for (const rec of records) {
-      for (const it of rec.items) {
-        const status = it.confirmed ? 'SEPARADO' : 'PENDENTE';
-        rows.push([
-          rec.orderId, rec.productCode, rec.productDesc, status, it.baseCode, it.currentCode, it.quantity, it.unit,
-          rec.operator || '', it.confirmedBy || '', it.confirmedAt || '', rec.startedAt, rec.finishedAt
-        ]);
-      }
-    }
-    const header = ['OP','Produto','Descrição','Status Item','Item Padrão','Item Usado','Qtde','Un','Operador OP','Operador Item','Confirmação Item','Início','Fim'];
-    const csv = [header, ...rows].map(r => r.map(v => `"${(v||'').toString().replaceAll('"','""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `relatorio_${Date.now()}.csv`; a.click();
-    URL.revokeObjectURL(url);
-  }
 
   function buildReportBlock(rec, type) {
     const { itemsCatalog } = getCatalog();

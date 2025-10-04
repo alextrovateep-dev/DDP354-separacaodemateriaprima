@@ -397,32 +397,32 @@ function ViewSeparar() {
   const root = el('div', { class: 'grid' });
 
   const searchCard = el('div', { class: 'card' }, [
-    el('div', { style: 'font-weight:700; margin-bottom:16px' }, 'Separar Materiais'),
+    el('div', { style: 'font-weight:700; margin-bottom:20px; font-size:18px; color:var(--text)' }, 'Separar Materiais'),
     
     // Filtros de Data
-    el('div', { style: 'margin-bottom:16px' }, [
-      el('div', { style: 'font-weight:600; margin-bottom:8px' }, 'Filtros de Data'),
-      el('div', { class: 'search-row' }, [
-        el('label', {}, [
-          el('span', {}, 'Data Início'),
+    el('div', { class: 'filter-section' }, [
+      el('div', { class: 'filter-section-title' }, 'Filtros de Data'),
+      el('div', { class: 'filter-row' }, [
+        el('div', { class: 'filter-field' }, [
+          el('label', {}, 'Data Início'),
           el('input', { type: 'date', id: 'inp-data-inicio' })
         ]),
-        el('label', {}, [
-          el('span', {}, 'Data Fim'),
+        el('div', { class: 'filter-field' }, [
+          el('label', {}, 'Data Fim'),
           el('input', { type: 'date', id: 'inp-data-fim' })
         ]),
-        el('div', {}, el('button', { 
-          class: 'btn btn-ghost', 
-          onclick: () => {
-            const inpDataInicio = document.getElementById('inp-data-inicio');
-            const inpDataFim = document.getElementById('inp-data-fim');
-            if (inpDataInicio) inpDataInicio.value = '';
-            if (inpDataFim) inpDataFim.value = '';
-            onBuscar();
-          }
-        }, 'Limpar Datas')),
-        el('div', {}, (() => {
-          const btn = el('button', { 
+        el('div', { class: 'filter-actions' }, [
+          el('button', { 
+            class: 'btn btn-ghost', 
+            onclick: () => {
+              const inpDataInicio = document.getElementById('inp-data-inicio');
+              const inpDataFim = document.getElementById('inp-data-fim');
+              if (inpDataInicio) inpDataInicio.value = '';
+              if (inpDataFim) inpDataFim.value = '';
+              onBuscar();
+            }
+          }, 'Limpar Datas'),
+          el('button', { 
             class: 'btn btn-ghost', 
             onclick: () => {
               const hoje = new Date();
@@ -435,51 +435,54 @@ function ViewSeparar() {
               if (inpDataFim) inpDataFim.value = hoje.toISOString().split('T')[0];
               onBuscar();
             }
-          }, 'Última Semana');
-          return btn;
-        })())
+          }, 'Última Semana')
+        ])
       ])
     ]),
     
     // Filtros de Busca
-    el('div', { style: 'margin-bottom:16px' }, [
-      el('div', { style: 'font-weight:600; margin-bottom:8px' }, 'Filtros de Busca'),
-      el('div', { class: 'search-row' }, [
-        el('label', {}, [
-          el('span', {}, 'Código da OP'),
+    el('div', { class: 'filter-section' }, [
+      el('div', { class: 'filter-section-title' }, 'Filtros de Busca'),
+      el('div', { class: 'filter-row' }, [
+        el('div', { class: 'filter-field' }, [
+          el('label', {}, 'Código da OP'),
           el('input', { id: 'inp-op', placeholder: 'ex.: OP-1001' })
         ]),
-        el('label', {}, [
-          el('span', {}, 'Código do Produto'),
+        el('div', { class: 'filter-field' }, [
+          el('label', {}, 'Código do Produto'),
           el('input', { id: 'inp-prod', placeholder: 'ex.: PROD-AX12' })
         ]),
-        el('label', {}, [
-          el('span', {}, 'Operação'),
+        el('div', { class: 'filter-field' }, [
+          el('label', {}, 'Operação'),
           el('input', { id: 'inp-operacao', placeholder: 'ex.: CORTE, SOLDAGEM' })
         ]),
-        el('div', {}, el('button', { class: 'btn', onclick: onBuscar }, 'Buscar'))
+        el('div', { class: 'filter-actions' }, [
+          el('button', { class: 'btn', onclick: onBuscar }, 'Buscar')
+        ])
       ])
     ]),
     
     // Filtros de Status
     (() => {
-      const wrap = el('div', { style: 'display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:16px' });
+      const statusContainer = el('div', { class: 'status-filters' });
+      statusContainer.appendChild(el('div', { class: 'status-label' }, 'Status:'));
+      
       const mk = (value, label) => {
         const active = separarFilter === value;
-        const b = el('button', { 
+        return el('button', { 
           class: active ? 'btn' : 'btn btn-ghost',
           onclick: () => { separarFilter = value; onBuscar(); }
         }, label);
-        return b;
       };
-      wrap.appendChild(el('div', { class: 'muted' }, 'Status:'));
-      wrap.appendChild(mk('todas', 'Todas'));
-      wrap.appendChild(mk('parcial', 'Parciais'));
-      wrap.appendChild(mk('sem-separacao', 'Sem Separação'));
-      return wrap;
+      
+      statusContainer.appendChild(mk('todas', 'Todas'));
+      statusContainer.appendChild(mk('parcial', 'Parciais'));
+      statusContainer.appendChild(mk('sem-separacao', 'Sem Separação'));
+      
+      return statusContainer;
     })(),
     
-    el('p', { class: 'muted' }, 'Use os filtros de data para buscar OPs por período. Use os filtros de busca para encontrar OPs específicas. Use os filtros de status para filtrar por tipo de separação.')
+    el('div', { class: 'instruction-text' }, 'Use os filtros de data para buscar OPs por período. Use os filtros de busca para encontrar OPs específicas. Use os filtros de status para filtrar por tipo de separação.')
   ]);
 
   const list = el('div', { class: 'op-list', id: 'op-list' });

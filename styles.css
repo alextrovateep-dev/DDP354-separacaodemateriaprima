@@ -35,6 +35,8 @@ body {
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
+  min-height: 100vh;
+  overflow-y: auto;
 }
 
 .main {
@@ -99,6 +101,70 @@ body {
 .sidebar-footer {
   padding: 20px;
   border-top: 1px solid var(--border);
+}
+
+/* Property Notice Fixed in Menu */
+.property-notice-fixed {
+  margin: 16px 20px 0 20px;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: relative !important;
+  z-index: 9999 !important;
+}
+
+.property-notice-fixed > div {
+  font-size: 11px;
+  color: #6b7280;
+  text-align: center;
+}
+
+.property-notice-fixed .notice-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.property-notice-fixed .notice-text {
+  margin-bottom: 8px;
+}
+
+.property-notice-fixed .notice-warning {
+  font-weight: 600;
+  color: #dc2626;
+  font-size: 10px;
+}
+
+/* Property Notice Mobile */
+.property-notice-mobile {
+  display: none;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 12px 24px;
+}
+
+.property-notice-mobile .notice-content {
+  font-size: 11px;
+  color: #6b7280;
+  text-align: center;
+}
+
+.property-notice-mobile .notice-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.property-notice-mobile .notice-text {
+  margin-bottom: 8px;
+}
+
+.property-notice-mobile .notice-warning {
+  font-weight: 600;
+  color: #dc2626;
+  font-size: 10px;
 }
 
 .operator-box {
@@ -196,6 +262,17 @@ body {
 .btn-danger:hover {
   background: #b91c1c;
   border-color: #b91c1c;
+}
+
+.btn-success {
+  background: #16a34a;
+  color: white;
+  border-color: #16a34a;
+}
+
+.btn-success:hover {
+  background: #15803d;
+  border-color: #15803d;
 }
 
 /* Forms */
@@ -461,6 +538,14 @@ body {
   
   .brand-text {
     display: none;
+  }
+  
+  .property-notice-fixed {
+    display: none; /* Ocultar em telas pequenas para economizar espaço */
+  }
+  
+  .property-notice-mobile {
+    display: block; /* Mostrar versão mobile da mensagem */
   }
   
   .two-col {

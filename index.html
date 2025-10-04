@@ -24,19 +24,22 @@
                 <button class="menu-item" data-route="#/finalizadas">Separações Finalizadas</button>
                 <button class="menu-item" data-route="#/relatorios">Relatórios</button>
                 <button class="menu-item" data-route="#/ddp354">DDP 354</button>
+                <button class="menu-item btn-success" id="btn-ddp-approval">Aprovação Técnica DDP 354</button>
                 <button class="menu-item btn-danger" id="btn-reset-demo">Resetar Demonstração</button>
+                
+                <!-- Mensagem de propriedade intelectual fixa no menu -->
+                <div class="property-notice-fixed">
+                    <div>
+                        <div class="notice-title">© TeepMES</div>
+                        <div class="notice-text">Esta interface é de propriedade da Teep. O intuito é orientar as partes sobre a necessidade de desenvolvimento da Facchini junto ao sistema TeepMES.</div>
+                        <div class="notice-warning">⚠️ Cópia ou compartilhamento com pessoas ou empresas não conectadas ao projeto está PROIBIDO.</div>
+                    </div>
+                </div>
             </nav>
             <div class="sidebar-footer">
                 <div class="operator-box">
                     <div class="op-name" id="op-name">Não autenticado</div>
                     <button id="btn-logout" class="btn btn-ghost small" hidden>Sair</button>
-                </div>
-                <div class="property-notice">
-                    <div style="font-size: 11px; color: #6b7280; text-align: center; margin-top: 16px; padding: 12px; background: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
-                        <div style="font-weight: 600; margin-bottom: 4px;">© TeepMES</div>
-                        <div style="margin-bottom: 8px;">Esta interface é de propriedade da Teep. O intuito é orientar as partes sobre a necessidade de desenvolvimento da Facchini junto ao sistema TeepMES.</div>
-                        <div style="font-weight: 600; color: #dc2626; font-size: 10px;">⚠️ Cópia ou compartilhamento com pessoas ou empresas não conectadas ao projeto está PROIBIDO.</div>
-                    </div>
                 </div>
             </div>
         </aside>
@@ -47,6 +50,14 @@
                     <button id="btn-open-login" class="btn" title="Entrar">Entrar</button>
                 </div>
             </header>
+            <!-- Mensagem de propriedade para telas pequenas -->
+            <div class="property-notice-mobile">
+                <div class="notice-content">
+                    <div class="notice-title">© TeepMES</div>
+                    <div class="notice-text">Esta interface é de propriedade da Teep. O intuito é orientar as partes sobre a necessidade de desenvolvimento da Facchini junto ao sistema TeepMES.</div>
+                    <div class="notice-warning">⚠️ Cópia ou compartilhamento com pessoas ou empresas não conectadas ao projeto está PROIBIDO.</div>
+                </div>
+            </div>
             <section id="view-container" class="view-container">
                 <!-- Views renderizadas via JS -->
             </section>
@@ -103,6 +114,75 @@
                 <button class="btn btn-ghost" id="confirm-cancel">Cancelar</button>
                 <button class="btn" id="confirm-ok">OK</button>
             </div>
+        </div>
+    </dialog>
+
+    <dialog id="dialog-ddp-approval" class="dialog">
+        <div class="card">
+            <div class="dialog-header">
+                <h3>Aprovação Técnica DDP 354 - Facchini</h3>
+                <button class="btn btn-ghost" id="ddp-approval-close">Fechar</button>
+            </div>
+            <form id="ddp-approval-form" class="form" action="https://formspree.io/f/mblybqqb" method="POST">
+                <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                    <div style="font-weight: 600; color: #0c4a6e; margin-bottom: 8px;">📋 DDP 354 - Separação e Validação de Materiais</div>
+                    <div style="color: #0369a1; font-size: 14px;">Formulário de aprovação técnica do processo para liberar geração de orçamento pelo departamento comercial</div>
+                </div>
+                
+                <input type="hidden" name="subject" value="✅ APROVAÇÃO TÉCNICA DDP 354 - FACCHINI - Liberação para Orçamento">
+                <input type="hidden" name="_next" value="">
+                <input type="hidden" name="_captcha" value="false">
+                <input type="hidden" name="_template" value="table">
+                <input type="hidden" name="_format" value="plain">
+                
+                <!-- Campos para melhorar a formatação do email -->
+                <input type="hidden" name="empresa" value="Facchini">
+                <input type="hidden" name="ddp_numero" value="DDP 354">
+                <input type="hidden" name="processo" value="Separação e Validação de Materiais">
+                <input type="hidden" name="data_aprovacao" value="">
+                <input type="hidden" name="status" value="APROVAÇÃO TÉCNICA CONCEDIDA">
+                
+                <label>
+                    <span>Nome *</span>
+                    <input type="text" name="nome" required placeholder="Digite seu nome">
+                </label>
+                
+                <label>
+                    <span>Sobrenome *</span>
+                    <input type="text" name="sobrenome" required placeholder="Digite seu sobrenome">
+                </label>
+                
+                <label>
+                    <span>Setor *</span>
+                    <input type="text" name="setor" required placeholder="ex.: Produção, Qualidade, TI">
+                </label>
+                
+                <label>
+                    <span>Cargo *</span>
+                    <input type="text" name="cargo" required placeholder="ex.: Gerente, Supervisor, Analista">
+                </label>
+                
+                <label>
+                    <span>Telefone de Contato *</span>
+                    <input type="tel" name="telefone" required placeholder="(xx) xxxxx-xxxx">
+                </label>
+                
+                <div id="ddp-approval-error" style="color:#dc2626; font-size:13px; display:none; margin-bottom:16px;">
+                    Erro ao enviar aprovação. Tente novamente.
+                </div>
+                
+                <div id="ddp-approval-success" style="color:#16a34a; font-size:13px; display:none; margin-bottom:16px;">
+                    Aprovação técnica enviada com sucesso! O departamento comercial será notificado para prosseguir com o orçamento.
+                </div>
+                
+                <div class="actions">
+                    <button type="button" class="btn btn-ghost" id="ddp-approval-cancel">Cancelar</button>
+                    <button type="submit" class="btn btn-success" id="ddp-approval-submit">
+                        <span id="submit-text">Aprovar Tecnicamente e Liberar para Orçamento</span>
+                        <span id="submit-loading" style="display:none;">Enviando...</span>
+                    </button>
+                </div>
+            </form>
         </div>
     </dialog>
 

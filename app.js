@@ -1682,3 +1682,114 @@ document.querySelectorAll('.menu-item').forEach(btn => {
     if (route) location.hash = route;
   });
 });
+
+// DDP Approval Form
+document.getElementById('btn-ddp-approval').addEventListener('click', () => {
+  const dialog = document.getElementById('dialog-ddp-approval');
+  const form = document.getElementById('ddp-approval-form');
+  const errorDiv = document.getElementById('ddp-approval-error');
+  const successDiv = document.getElementById('ddp-approval-success');
+  const submitBtn = document.getElementById('ddp-approval-submit');
+  const submitText = document.getElementById('submit-text');
+  const submitLoading = document.getElementById('submit-loading');
+  
+  // Reset form
+  form.reset();
+  errorDiv.style.display = 'none';
+  successDiv.style.display = 'none';
+  submitBtn.disabled = false;
+  submitText.style.display = 'inline';
+  submitLoading.style.display = 'none';
+  
+  // Preencher data de aprovação automaticamente
+  const dataInput = form.querySelector('input[name="data_aprovacao"]');
+  if (dataInput) {
+    const now = new Date();
+    dataInput.value = now.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+  
+  dialog.showModal();
+});
+
+// Close dialog buttons
+document.getElementById('ddp-approval-close').addEventListener('click', () => {
+  document.getElementById('dialog-ddp-approval').close();
+});
+
+document.getElementById('ddp-approval-cancel').addEventListener('click', () => {
+  document.getElementById('dialog-ddp-approval').close();
+});
+
+// Form submission
+document.getElementById('ddp-approval-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  const form = e.target;
+  const errorDiv = document.getElementById('ddp-approval-error');
+  const successDiv = document.getElementById('ddp-approval-success');
+  const submitBtn = document.getElementById('ddp-approval-submit');
+  const submitText = document.getElementById('submit-text');
+  const submitLoading = document.getElementById('submit-loading');
+  
+  // Show loading state
+  submitBtn.disabled = true;
+  submitText.style.display = 'none';
+  submitLoading.style.display = 'inline';
+  errorDiv.style.display = 'none';
+  successDiv.style.display = 'none';
+  
+  try {
+    const formData = new FormData(form);
+    
+    // Add email destination
+    formData.append('_replyto', 'alex@teep.com.be');
+    formData.append('_cc', 'alex@teep.com.be');
+    
+    // Organizar dados para melhor formatação no email
+    const nome = formData.get('nome');
+    const sobrenome = formData.get('sobrenome');
+    const setor = formData.get('setor');
+    const cargo = formData.get('cargo');
+    const telefone = formData.get('telefone');
+    
+    // Adicionar informações estruturadas
+    formData.set('aprovador', `${nome} ${sobrenome}`);
+    formData.set('contato_completo', `${nome} ${sobrenome} - ${cargo} (${setor})`);
+    formData.set('telefone_formatado', `📞 ${telefone}`);
+    formData.set('proximo_passo', 'Departamento Comercial - Geração de Orçamento');
+    
+    const response = await fetch(form.action, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    
+    if (response.ok) {
+      successDiv.style.display = 'block';
+      form.reset();
+      
+      // Close dialog after 2 seconds
+      setTimeout(() => {
+        document.getElementById('dialog-ddp-approval').close();
+      }, 2000);
+    } else {
+      throw new Error('Erro no envio');
+    }
+  } catch (error) {
+    console.error('Erro ao enviar formulário:', error);
+    errorDiv.style.display = 'block';
+  } finally {
+    // Reset button state
+    submitBtn.disabled = false;
+    submitText.style.display = 'inline';
+    submitLoading.style.display = 'none';
+  }
+});

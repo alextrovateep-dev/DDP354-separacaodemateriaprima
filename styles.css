@@ -474,6 +474,45 @@ body {
   z-index: 1000;
 }
 
+/* Popup de confirmação com cores dinâmicas */
+.dialog-confirm-total .card {
+  border-left: 4px solid #16a34a;
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+}
+
+.dialog-confirm-total .card h3 {
+  color: #15803d;
+}
+
+.dialog-confirm-total .card .btn {
+  background: #16a34a;
+  border-color: #16a34a;
+}
+
+.dialog-confirm-total .card .btn:hover {
+  background: #15803d;
+  border-color: #15803d;
+}
+
+.dialog-confirm-parcial .card {
+  border-left: 4px solid #d97706;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+}
+
+.dialog-confirm-parcial .card h3 {
+  color: #92400e;
+}
+
+.dialog-confirm-parcial .card .btn {
+  background: #d97706;
+  border-color: #d97706;
+}
+
+.dialog-confirm-parcial .card .btn:hover {
+  background: #b45309;
+  border-color: #b45309;
+}
+
 .dialog .card {
   width: min(600px, 90vw);
   max-height: 80vh;

@@ -702,9 +702,9 @@ function ViewChecklist(orderId) {
     const mode = pending === 0 ? 'total' : 'parcial';
     
     if (mode === 'total') {
-      openConfirm('Finalização Total', 'Todos os itens foram confirmados. Deseja finalizar a separação?', () => doFinalize(mode));
+      openConfirm('Finalização Total', 'Todos os itens foram confirmados. Deseja finalizar a separação?', () => doFinalize(mode), 'total');
     } else {
-      openConfirm('Finalização Parcial', `Ainda há ${pending} itens pendentes. Deseja salvar a separação parcial?`, () => doFinalize(mode));
+      openConfirm('Finalização Parcial', `Ainda há ${pending} itens pendentes. Deseja salvar a separação parcial?`, () => doFinalize(mode), 'parcial');
     }
   }
 
@@ -737,7 +737,7 @@ function ViewChecklist(orderId) {
       }
     };
     
-    openConfirm('Separação finalizada com sucesso', info, nextAction);
+    openConfirm('Separação finalizada com sucesso', info, nextAction, mode);
   }
 
   function rerender() {
@@ -877,16 +877,28 @@ function openAlternativesDialog(items, onSelect) {
 }
 
 // ===== DIALOGS =====
-function openConfirm(title, message, onOk) {
+function openConfirm(title, message, onOk, type = 'default') {
   const dlg = document.getElementById('dialog-confirm');
   document.getElementById('confirm-title').textContent = title;
   document.getElementById('confirm-message').textContent = message;
   const btnOk = document.getElementById('confirm-ok');
   const btnCancel = document.getElementById('confirm-cancel');
   
+  // Remover classes anteriores
+  dlg.classList.remove('dialog-confirm-total', 'dialog-confirm-parcial');
+  
+  // Aplicar classe baseada no tipo
+  if (type === 'total') {
+    dlg.classList.add('dialog-confirm-total');
+  } else if (type === 'parcial') {
+    dlg.classList.add('dialog-confirm-parcial');
+  }
+  
   const cleanup = () => {
     btnOk.removeEventListener('click', handleOk);
     btnCancel.removeEventListener('click', handleCancel);
+    // Remover classes ao fechar
+    dlg.classList.remove('dialog-confirm-total', 'dialog-confirm-parcial');
   };
   
   const handleOk = () => { dlg.close(); cleanup(); onOk?.(); };
@@ -1714,6 +1726,29 @@ document.getElementById('btn-ddp-approval').addEventListener('click', () => {
     });
   }
   
+  // Preencher mensagens personalizadas
+  const mensagemCabecalho = form.querySelector('input[name="mensagem_cabecalho"]');
+  const mensagemAprovacao = form.querySelector('input[name="mensagem_aprovacao"]');
+  const mensagemDetalhes = form.querySelector('input[name="mensagem_detalhes"]');
+  const mensagemProximoPasso = form.querySelector('input[name="mensagem_proximo_passo"]');
+  const mensagemRodape = form.querySelector('input[name="mensagem_rodape"]');
+  
+  if (mensagemCabecalho) {
+    mensagemCabecalho.value = "🎯 NOVA APROVAÇÃO TÉCNICA RECEBIDA - FACCHINI";
+  }
+  if (mensagemAprovacao) {
+    mensagemAprovacao.value = "✅ APROVAÇÃO TÉCNICA DO DDP 354 CONCEDIDA";
+  }
+  if (mensagemDetalhes) {
+    mensagemDetalhes.value = "📋 PROCESSO: Separação e Validação de Materiais - Sistema TeepMES";
+  }
+  if (mensagemProximoPasso) {
+    mensagemProximoPasso.value = "🚀 PRÓXIMO PASSO: Departamento Comercial pode prosseguir com geração de orçamento";
+  }
+  if (mensagemRodape) {
+    mensagemRodape.value = "📞 Entre em contato com o aprovador para mais detalhes sobre o processo.";
+  }
+  
   dialog.showModal();
 });
 
@@ -1747,8 +1782,8 @@ document.getElementById('ddp-approval-form').addEventListener('submit', async (e
   try {
     const formData = new FormData(form);
     
-    // Add email destination
-    formData.append('_replyto', 'alex@teep.com.be');
+    // Add email destination - usar email do formulário como _replyto
+    formData.append('_replyto', email);
     formData.append('_cc', 'alex@teep.com.be');
     
     // Organizar dados para melhor formatação no email
@@ -1757,12 +1792,19 @@ document.getElementById('ddp-approval-form').addEventListener('submit', async (e
     const setor = formData.get('setor');
     const cargo = formData.get('cargo');
     const telefone = formData.get('telefone');
+    const email = formData.get('email');
     
-    // Adicionar informações estruturadas
-    formData.set('aprovador', `${nome} ${sobrenome}`);
-    formData.set('contato_completo', `${nome} ${sobrenome} - ${cargo} (${setor})`);
-    formData.set('telefone_formatado', `📞 ${telefone}`);
-    formData.set('proximo_passo', 'Departamento Comercial - Geração de Orçamento');
+    // Estrutura organizada do email (sem duplicações)
+    formData.set('SEPARADOR_PRINCIPAL', '═══════════════════════════════════════');
+    formData.set('DDP_INFO', `DDP 354 - Separação e Validação de Materiais`);
+    formData.set('STATUS', '✅ APROVAÇÃO TÉCNICA CONCEDIDA');
+    formData.set('SEPARADOR_APROVADOR', '═══════════════════════════════════════');
+    formData.set('APROVADOR', `${nome} ${sobrenome}`);
+    formData.set('CARGO_SETOR', `${cargo} - ${setor}`);
+    formData.set('TELEFONE', `📞 ${telefone}`);
+    formData.set('EMAIL', `📧 ${email}`);
+    formData.set('SEPARADOR_ACAO', '═══════════════════════════════════════');
+    formData.set('PROXIMO_PASSO', '🚀 GERAR ORÇAMENTO - Departamento Comercial');
     
     const response = await fetch(form.action, {
       method: 'POST',

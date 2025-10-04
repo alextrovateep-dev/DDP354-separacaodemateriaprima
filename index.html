@@ -135,12 +135,16 @@
                 <input type="hidden" name="_template" value="table">
                 <input type="hidden" name="_format" value="plain">
                 
-                <!-- Campos para melhorar a formatação do email -->
+                <!-- Campos essenciais para formatação do email -->
                 <input type="hidden" name="empresa" value="Facchini">
-                <input type="hidden" name="ddp_numero" value="DDP 354">
-                <input type="hidden" name="processo" value="Separação e Validação de Materiais">
                 <input type="hidden" name="data_aprovacao" value="">
-                <input type="hidden" name="status" value="APROVAÇÃO TÉCNICA CONCEDIDA">
+                
+                <!-- Mensagem personalizada para o corpo do email -->
+                <input type="hidden" name="mensagem_cabecalho" value="">
+                <input type="hidden" name="mensagem_aprovacao" value="">
+                <input type="hidden" name="mensagem_detalhes" value="">
+                <input type="hidden" name="mensagem_proximo_passo" value="">
+                <input type="hidden" name="mensagem_rodape" value="">
                 
                 <label>
                     <span>Nome *</span>
@@ -153,6 +157,16 @@
                 </label>
                 
                 <label>
+                    <span>Telefone de Contato *</span>
+                    <input type="tel" name="telefone" required placeholder="(xx) xxxxx-xxxx">
+                </label>
+                
+                <label>
+                    <span>Email de Contato *</span>
+                    <input type="email" name="email" required placeholder="seu.email@empresa.com">
+                </label>
+                
+                <label>
                     <span>Setor *</span>
                     <input type="text" name="setor" required placeholder="ex.: Produção, Qualidade, TI">
                 </label>
@@ -160,11 +174,6 @@
                 <label>
                     <span>Cargo *</span>
                     <input type="text" name="cargo" required placeholder="ex.: Gerente, Supervisor, Analista">
-                </label>
-                
-                <label>
-                    <span>Telefone de Contato *</span>
-                    <input type="tel" name="telefone" required placeholder="(xx) xxxxx-xxxx">
                 </label>
                 
                 <div id="ddp-approval-error" style="color:#dc2626; font-size:13px; display:none; margin-bottom:16px;">

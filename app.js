@@ -1522,18 +1522,124 @@ function ViewRelatorios() {
 
 function ViewDDP354() {
   return el('div', { class: 'card' }, [
-    el('h3', {}, 'DDP 354 - Separação e Validação de Materiais'),
-    el('p', {}, 'Documento funcional com diretrizes de construção do módulo no TeepMES.'),
-    el('h4', {}, 'Funcionalidades Implementadas:'),
-    el('ul', {}, [
-      el('li', {}, '✅ Autenticação do operador (operador/1234)'),
-      el('li', {}, '✅ Busca por OP/Produto/Operação'),
-      el('li', {}, '✅ Filtros: Todas, Parciais, Sem Separação'),
-      el('li', {}, '✅ Checklist completo com confirmação'),
-      el('li', {}, '✅ Seleção de alternativos'),
-      el('li', {}, '✅ Finalização Total/Parcial'),
-      el('li', {}, '✅ Bloqueio de edição após finalização'),
-      el('li', {}, '✅ Rastreabilidade completa'),
+    el('div', { style: 'font-weight:700; margin-bottom:16px' }, 'DDP 354 — Separação e Validação de Materiais (Diretrizes para Desenvolvimento)'),
+    el('p', { class: 'muted' }, 'Documento funcional que define como será a funcionalidade do sistema final no TeepMES. Especifica a solução e operação do módulo de separação de materiais.'),
+    
+    el('div', { class: 'grid' }, [
+      el('div', {}, [
+        el('h4', {}, '1. Objetivo do Sistema'),
+        el('p', {}, 'Assegurar que todos os materiais requeridos por OP estejam separados e validados antes da produção, com controle de alternativos, rastreabilidade e autoria do operador. O sistema deve integrar-se ao ERP da Facchini para obter dados em tempo real.'),
+      ]),
+      
+      el('div', {}, [
+        el('h4', {}, '2. Funcionalidades do Sistema Final'),
+        el('ul', {}, [
+          el('li', {}, 'Autenticação do operador (responsável por todas as ações)'),
+          el('li', {}, 'Busca e seleção de OP por código ou por produto'),
+          el('li', {}, 'Filtros na busca: Todas, Parciais, Sem Separação (ativas)'),
+          el('li', {}, 'Filtros por data, OP, produto e operação'),
+          el('li', {}, 'Checklist de materiais (código, depósito, localização, qtde, descrição, unidade)'),
+          el('li', {}, 'Confirmação item a item (check) com rastreabilidade (operador e timestamp)'),
+          el('li', {}, 'Seleção de itens alternativos pré-cadastrados, com busca e registro de substituição'),
+          el('li', {}, 'Finalização automática (detecta total/parcial baseado nos itens confirmados)'),
+          el('li', {}, 'Bloqueio de edição após finalização (total/parcial) para garantir integridade dos dados'),
+          el('li', {}, 'Filtro por operação na busca de OPs (CORTE, SOLDAGEM, MONTAGEM)'),
+          el('li', {}, 'Consulta de Separações Parciais (via filtro "Parciais") e Finalizadas (menu dedicado)'),
+          el('li', {}, 'Relatórios detalhados: separados vs pendentes, alternativos, rastreabilidade'),
+          el('li', {}, 'Relatórios consolidados com seleção múltipla e exportação PDF/CSV'),
+        ])
+      ]),
+      
+      el('div', {}, [
+        el('h4', {}, '3. Integração com ERP'),
+        el('div', { style: 'background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 16px; margin-top: 16px;' }, [
+          el('div', { style: 'font-weight: 600; color: #0c4a6e; margin-bottom: 12px;' }, '🔗 INTEGRAÇÃO COM ERP DA FACCHINI'),
+          el('p', { style: 'margin: 0 0 12px 0; color: #0369a1; font-weight: 600;' }, 'A integração será definida por configurações entre as partes: ERP, Facchini e Teep.'),
+          el('ul', { style: 'margin: 0; color: #0369a1;' }, [
+            el('li', {}, 'OPs ativas e seus insumos (BOM) devem vir do ERP via integração'),
+            el('li', {}, 'Cadastro de itens: código, descrição, unidade, depósito e localização fixa'),
+            el('li', {}, 'Mapa de alternativos por item padrão (até N alternativos)'),
+            el('li', {}, 'Dados de operação (CORTE, SOLDAGEM, MONTAGEM) por OP'),
+            el('li', {}, 'Retorno de eventos: separação total/parcial, substituições e responsável'),
+            el('li', {}, 'Sincronização de dados conforme configuração definida'),
+            el('li', {}, 'Validação de disponibilidade de materiais'),
+          ])
+        ])
+      ]),
+      
+      el('div', {}, [
+        el('h4', {}, '4. Operação do Sistema'),
+        el('ul', {}, [
+          el('li', {}, 'Operador faz login no sistema TeepMES'),
+          el('li', {}, 'Sistema busca OPs ativas do ERP da Facchini'),
+          el('li', {}, 'Operador seleciona OP para separação'),
+          el('li', {}, 'Sistema carrega BOM da OP do ERP'),
+          el('li', {}, 'Operador confirma cada item após separação física'),
+          el('li', {}, 'Sistema registra substituições quando alternativos são utilizados'),
+          el('li', {}, 'Sistema finaliza separação (total ou parcial)'),
+          el('li', {}, 'Dados são enviados de volta ao ERP para atualização de estoque'),
+          el('li', {}, 'Relatórios são gerados para auditoria e controle'),
+        ])
+      ]),
+      
+      el('div', {}, [
+        el('h4', {}, '5. Fluxo de Dados'),
+        el('div', { style: 'background: #f0fdf4; border: 1px solid #22c55e; border-radius: 8px; padding: 16px; margin-top: 16px;' }, [
+          el('div', { style: 'font-weight: 600; color: #166534; margin-bottom: 12px;' }, '📊 FLUXO DE DADOS ERP ↔ TeepMES'),
+          el('p', { style: 'margin: 0 0 12px 0; color: #15803d; font-weight: 600;' }, 'Fluxo definido por configurações entre ERP, Facchini e Teep:'),
+          el('ol', { style: 'margin: 0; color: #15803d;' }, [
+            el('li', {}, 'ERP → TeepMES: OPs ativas, BOM, itens, alternativos'),
+            el('li', {}, 'TeepMES: Processa separação, registra confirmações'),
+            el('li', {}, 'TeepMES → ERP: Eventos de separação, substituições, finalizações'),
+            el('li', {}, 'ERP: Atualiza estoque, registra movimentações'),
+            el('li', {}, 'TeepMES: Gera relatórios e mantém histórico'),
+          ])
+        ])
+      ]),
+      
+      el('div', {}, [
+        el('h4', {}, '6. Regras de Negócio'),
+        el('ul', {}, [
+          el('li', {}, 'Finalização automática: Total (100% confirmados) ou Parcial (pendentes)'),
+          el('li', {}, 'Registrar substituição contendo: item padrão, alternativo, operador e data'),
+          el('li', {}, 'Registrar timestamps: início da separação e finalização (total/parcial)'),
+          el('li', {}, 'Retomar parcial preserva progresso (itens já confirmados/substituídos)'),
+          el('li', {}, 'Bloqueio de edição para itens confirmados em separações parciais'),
+          el('li', {}, 'Bloqueio total para separações finalizadas completamente'),
+          el('li', {}, 'Validação de disponibilidade de estoque antes da separação'),
+        ])
+      ]),
+      
+      el('div', {}, [
+        el('h4', {}, '7. Requisitos Técnicos'),
+        el('ul', {}, [
+          el('li', {}, 'Usabilidade em ambiente fabril (cliques grandes, contraste, responsivo)'),
+          el('li', {}, 'Rastreabilidade: logs de alteração por usuário e horário'),
+          el('li', {}, 'Segurança: autenticação de operador com usuário e senha, trilha de auditoria'),
+          el('li', {}, 'Integração com ERP da Facchini (configurações definidas entre ERP, Facchini e Teep)'),
+          el('li', {}, 'Sincronização de dados bidirecional'),
+        ])
+      ]),
+      
+      el('div', {}, [
+        el('h4', {}, '8. Estrutura de Dados'),
+        el('ul', {}, [
+          el('li', {}, 'OP: id, produto (código/descrição), operação, status, data criação'),
+          el('li', {}, 'Item do checklist: baseCode, currentCode, descrição, unidade, localização, quantidade, confirmado, substitution, confirmedBy, confirmedAt, locked'),
+          el('li', {}, 'Sessão: operador (usuário, nome, loginAt)'),
+          el('li', {}, 'Separação: orderId, productCode, productDesc, operacao, operator, startedAt, finishedAt, finalizeMode, items'),
+          el('li', {}, 'Histórico: separações finalizadas para relatórios e auditoria'),
+        ])
+      ]),
+      
+      el('div', {}, [
+        el('h4', {}, '9. Propriedade Intelectual'),
+        el('div', { style: 'background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin-top: 16px;' }, [
+          el('div', { style: 'font-weight: 600; color: #dc2626; margin-bottom: 8px;' }, '⚠️ AVISO DE PROPRIEDADE INTELECTUAL'),
+          el('p', { style: 'margin: 0; color: #7f1d1d;' }, 'Esta interface é de propriedade exclusiva da TeepMES. O objetivo é orientar as partes envolvidas sobre a necessidade de desenvolvimento da Facchini junto ao sistema TeepMES.'),
+          el('p', { style: 'margin: 8px 0 0 0; font-weight: 600; color: #dc2626;' }, 'Cópia ou compartilhamento com pessoas ou empresas não conectadas ao projeto está PROIBIDO.')
+        ])
+      ])
     ])
   ]);
 }

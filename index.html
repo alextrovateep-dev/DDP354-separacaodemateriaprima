@@ -21,10 +21,10 @@
             </div>
             <nav class="menu">
                 <button class="menu-item" data-route="#/separar">Separar Materiais</button>
-                <button class="menu-item" data-route="#/parciais">Ordens com Separação Parcial</button>
                 <button class="menu-item" data-route="#/finalizadas">Separações Finalizadas</button>
                 <button class="menu-item" data-route="#/relatorios">Relatórios</button>
                 <button class="menu-item" data-route="#/ddp354">DDP 354</button>
+                <button class="menu-item btn-danger" id="btn-reset-demo">Resetar Demonstração</button>
             </nav>
             <div class="sidebar-footer">
                 <div class="operator-box">
@@ -50,15 +50,21 @@
     <dialog id="dialog-login" class="dialog">
         <form method="dialog" class="card form" id="login-form">
             <h3>Login do Operador</h3>
-            <p class="muted" id="login-hint">Demonstração: usuário <b>operador</b> • senha <b>1234</b></p>
+            <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                <div style="font-weight: 600; color: #0c4a6e; margin-bottom: 8px;">🔐 Credenciais de Demonstração</div>
+                <div style="font-size: 14px; color: #0369a1;">
+                    <strong>Usuário:</strong> operador<br>
+                    <strong>Senha:</strong> 1234
+                </div>
+            </div>
             <div id="login-error" style="color:#dc2626; font-size:13px; display:none;">Usuário ou senha inválidos.</div>
             <label>
                 <span>Usuário</span>
-                <input type="text" id="login-user" required placeholder="ex.: operador">
+                <input type="text" id="login-user" required placeholder="Digite: operador">
             </label>
             <label>
                 <span>Senha</span>
-                <input type="password" id="login-pass" required placeholder="••••••">
+                <input type="password" id="login-pass" required placeholder="Digite: 1234">
             </label>
             <div class="actions">
                 <button class="btn btn-ghost" value="cancel">Cancelar</button>
@@ -82,8 +88,10 @@
 
     <dialog id="dialog-confirm" class="dialog">
         <div class="card">
-            <h3 id="confirm-title">Confirmar</h3>
-            <p id="confirm-message"></p>
+            <div class="dialog-header">
+                <h3 id="confirm-title">Confirmar</h3>
+            </div>
+            <div id="confirm-message" class="muted"></div>
             <div class="actions">
                 <button class="btn btn-ghost" id="confirm-cancel">Cancelar</button>
                 <button class="btn" id="confirm-ok">OK</button>
@@ -91,14 +99,15 @@
         </div>
     </dialog>
 
-    <script src="app.js?v=20250924-01"></script>
+    <script src="app.js"></script>
     <script>
         // Navegação do menu lateral (hash routing)
-        document.querySelectorAll('.menu-item').forEach(b=>{
-            b.addEventListener('click', ()=> location.hash = b.dataset.route);
+        document.querySelectorAll('.menu-item').forEach(btn => {
+            btn.addEventListener('click', () => {
+                location.hash = btn.dataset.route;
+            });
         });
     </script>
 </body>
 </html>
-
 

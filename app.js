@@ -1716,41 +1716,7 @@ document.getElementById('btn-ddp-approval').addEventListener('click', () => {
   submitText.style.display = 'inline';
   submitLoading.style.display = 'none';
   
-  // Preencher data de aprovação automaticamente
-  const dataInput = form.querySelector('input[name="data_aprovacao"]');
-  if (dataInput) {
-    const now = new Date();
-    dataInput.value = now.toLocaleString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit', 
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  }
-  
-  // Preencher mensagens personalizadas
-  const mensagemCabecalho = form.querySelector('input[name="mensagem_cabecalho"]');
-  const mensagemAprovacao = form.querySelector('input[name="mensagem_aprovacao"]');
-  const mensagemDetalhes = form.querySelector('input[name="mensagem_detalhes"]');
-  const mensagemProximoPasso = form.querySelector('input[name="mensagem_proximo_passo"]');
-  const mensagemRodape = form.querySelector('input[name="mensagem_rodape"]');
-  
-  if (mensagemCabecalho) {
-    mensagemCabecalho.value = "🎯 NOVA APROVAÇÃO TÉCNICA RECEBIDA - FACCHINI";
-  }
-  if (mensagemAprovacao) {
-    mensagemAprovacao.value = "✅ APROVAÇÃO TÉCNICA DO DDP 354 CONCEDIDA";
-  }
-  if (mensagemDetalhes) {
-    mensagemDetalhes.value = "📋 PROCESSO: Separação e Validação de Materiais - Sistema TeepMES";
-  }
-  if (mensagemProximoPasso) {
-    mensagemProximoPasso.value = "🚀 PRÓXIMO PASSO: Departamento Comercial pode prosseguir com geração de orçamento";
-  }
-  if (mensagemRodape) {
-    mensagemRodape.value = "📞 Entre em contato com o aprovador para mais detalhes sobre o processo.";
-  }
+  // Formulário simplificado - não precisa preencher campos hidden
   
   dialog.showModal();
 });
@@ -1785,10 +1751,6 @@ document.getElementById('ddp-approval-form').addEventListener('submit', async (e
   try {
     const formData = new FormData(form);
     
-    // Add email destination - usar email do formulário como _replyto
-    formData.append('_replyto', email);
-    formData.append('_cc', 'alex@teep.com.be');
-    
     // Organizar dados para melhor formatação no email
     const nome = formData.get('nome');
     const sobrenome = formData.get('sobrenome');
@@ -1797,17 +1759,29 @@ document.getElementById('ddp-approval-form').addEventListener('submit', async (e
     const telefone = formData.get('telefone');
     const email = formData.get('email');
     
-    // Estrutura organizada do email (sem duplicações)
-    formData.set('SEPARADOR_PRINCIPAL', '═══════════════════════════════════════');
-    formData.set('DDP_INFO', `DDP 354 - Separação e Validação de Materiais`);
-    formData.set('STATUS', '✅ APROVAÇÃO TÉCNICA CONCEDIDA');
-    formData.set('SEPARADOR_APROVADOR', '═══════════════════════════════════════');
-    formData.set('APROVADOR', `${nome} ${sobrenome}`);
-    formData.set('CARGO_SETOR', `${cargo} - ${setor}`);
-    formData.set('TELEFONE', `📞 ${telefone}`);
-    formData.set('EMAIL', `📧 ${email}`);
-    formData.set('SEPARADOR_ACAO', '═══════════════════════════════════════');
-    formData.set('PROXIMO_PASSO', '🚀 GERAR ORÇAMENTO - Departamento Comercial');
+    // Criar uma mensagem simples combinando todos os dados
+    const mensagemCompleta = `
+DDP 354 - Separacao e Validacao de Materiais
+APROVACAO TECNICA CONCEDIDA
+
+APROVADOR: ${nome} ${sobrenome}
+CARGO: ${cargo}
+SETOR: ${setor}
+TELEFONE: ${telefone}
+EMAIL: ${email}
+
+PROXIMO PASSO: GERAR ORCAMENTO - Departamento Comercial
+    `.trim();
+    
+    // IMPORTANTE: Não sobrescrever o campo email, usar 'message' para o conteúdo
+    formData.set('message', mensagemCompleta);
+    
+    // Configurar reply-to
+    formData.append('_replyto', email);
+    
+    // Debug: mostrar dados que serão enviados
+    console.log('Dados do formulário:', [...formData.entries()]);
+    console.log('URL do formulário:', form.action);
     
     const response = await fetch(form.action, {
       method: 'POST',
@@ -1817,7 +1791,12 @@ document.getElementById('ddp-approval-form').addEventListener('submit', async (e
       }
     });
     
+    console.log('Status da resposta:', response.status);
+    console.log('Headers da resposta:', [...response.headers.entries()]);
+    
     if (response.ok) {
+      const responseText = await response.text();
+      console.log('Resposta do servidor:', responseText);
       successDiv.style.display = 'block';
       form.reset();
       
@@ -1826,7 +1805,9 @@ document.getElementById('ddp-approval-form').addEventListener('submit', async (e
         document.getElementById('dialog-ddp-approval').close();
       }, 2000);
     } else {
-      throw new Error('Erro no envio');
+      const errorText = await response.text();
+      console.error('Erro detalhado:', response.status, errorText);
+      throw new Error(`Erro no envio: ${response.status} - ${errorText}`);
     }
   } catch (error) {
     console.error('Erro ao enviar formulário:', error);

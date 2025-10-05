@@ -131,22 +131,9 @@
                     <div style="color: #0369a1; font-size: 14px;">Formulário de aprovação técnica do processo para liberar geração de orçamento pelo departamento comercial</div>
                 </div>
                 
-                <input type="hidden" name="subject" value="✅ APROVAÇÃO TÉCNICA DDP 354 - FACCHINI - Liberação para Orçamento">
-                <input type="hidden" name="_next" value="">
+                <!-- Configurações básicas do Formspree -->
+                <input type="hidden" name="subject" value="APROVACAO TECNICA DDP 354 - FACCHINI">
                 <input type="hidden" name="_captcha" value="false">
-                <input type="hidden" name="_template" value="table">
-                <input type="hidden" name="_format" value="plain">
-                
-                <!-- Campos essenciais para formatação do email -->
-                <input type="hidden" name="empresa" value="Facchini">
-                <input type="hidden" name="data_aprovacao" value="">
-                
-                <!-- Mensagem personalizada para o corpo do email -->
-                <input type="hidden" name="mensagem_cabecalho" value="">
-                <input type="hidden" name="mensagem_aprovacao" value="">
-                <input type="hidden" name="mensagem_detalhes" value="">
-                <input type="hidden" name="mensagem_proximo_passo" value="">
-                <input type="hidden" name="mensagem_rodape" value="">
                 
                 <label>
                     <span>Nome *</span>
@@ -165,7 +152,7 @@
                 
                 <label>
                     <span>Email de Contato *</span>
-                    <input type="email" name="email" required placeholder="seu.email@empresa.com">
+                    <input type="email" name="email" required placeholder="seu.email@empresa.com" pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$" title="Digite um email válido (exemplo: nome@empresa.com)">
                 </label>
                 
                 <label>

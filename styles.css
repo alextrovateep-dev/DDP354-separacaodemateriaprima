@@ -501,8 +501,11 @@ body {
   border-bottom: 2px solid #c7a400;
   padding: 12px;
   text-align: left;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 14px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
   position: sticky;
   top: 0;
   z-index: 1;

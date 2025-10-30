@@ -283,6 +283,7 @@ function finalizeSeparation(orderId, mode) {
   updateSeparation(orderId, rec => {
     rec.finishedAt = nowIso();
     rec.finalizeMode = mode;
+    // Confirmação é decisão do operador (checkbox). Não alterar aqui.
     
     // Garantir dados da OP
     if (!rec.productCode || !rec.productDesc) {
@@ -299,7 +300,7 @@ function finalizeSeparation(orderId, mode) {
       item.minAttended = item.attended || 0;
       item.minAttendedAlt = item.attendedAlt || 0;
     });
-
+    
     // Bloquear itens conforme o modo
     if (mode === 'total') {
       rec.items.forEach(item => item.locked = true);
@@ -429,14 +430,14 @@ function ViewSeparar() {
         ]),
         el('div', { class: 'filter-actions' }, [
           el('button', { 
-            class: 'btn btn-ghost', 
-            onclick: () => {
-              const inpDataInicio = document.getElementById('inp-data-inicio');
-              const inpDataFim = document.getElementById('inp-data-fim');
-              if (inpDataInicio) inpDataInicio.value = '';
-              if (inpDataFim) inpDataFim.value = '';
-              onBuscar();
-            }
+          class: 'btn btn-ghost', 
+          onclick: () => {
+            const inpDataInicio = document.getElementById('inp-data-inicio');
+            const inpDataFim = document.getElementById('inp-data-fim');
+            if (inpDataInicio) inpDataInicio.value = '';
+            if (inpDataFim) inpDataFim.value = '';
+            onBuscar();
+          }
           }, 'Limpar Datas'),
           el('button', { 
             class: 'btn btn-ghost', 
@@ -651,11 +652,11 @@ function ViewChecklist(orderId) {
       const dep = (it.location || '').split('/')[0].trim();
       const tr = el('tr', { class: it.locked ? 'locked' : '' });
       
-      // Confirmação automática baseada no saldo a faltar
+      // Seleção manual do item separado
       const faltaCalc = remainingQty(it);
       const chk = el('input', { type: 'checkbox' });
-      chk.checked = faltaCalc === 0;
-      chk.disabled = true; // confirmação é derivada da quantidade; não permitir edição manual
+      chk.checked = !!it.confirmed;
+      chk.disabled = !!it.locked;
       chk.addEventListener('change', () => {
         if (it.locked) {
           chk.checked = it.confirmed;
@@ -738,9 +739,6 @@ function ViewChecklist(orderId) {
         const invalid = (Number.parseInt(inpAtt.value, 10) !== v);
         updateSeparation(orderId, rec => {
           rec.items[idx].attended = v;
-          // auto confirmar se zerou falta
-          const falta = remainingQty(rec.items[idx]);
-          rec.items[idx].confirmed = falta === 0;
         });
         inpAtt.value = String(v);
         if (invalid) {
@@ -825,7 +823,7 @@ function ViewChecklist(orderId) {
   }
 
   function onSave() {
-    const pending = separation.items.filter(i => (i.quantity - (i.attended || 0) - (i.attendedAlt || 0)) > 0).length;
+    const pending = separation.items.filter(i => !i.confirmed).length;
     const mode = pending === 0 ? 'total' : 'parcial';
     
     if (mode === 'total') {
@@ -875,9 +873,9 @@ function ViewChecklist(orderId) {
 
   // Layout: resumo no topo para ganhar espaço lateral
   const root = el('div', { class: 'grid' }, [
-    renderHeader(),
+      renderHeader(),
     renderSummary(),
-    renderTable()
+      renderTable()
   ]);
 
   return root;
@@ -1741,124 +1739,96 @@ function ViewRelatorios() {
 
 function ViewDDP354() {
   return el('div', { class: 'card' }, [
-    el('div', { style: 'font-weight:700; margin-bottom:16px' }, 'DDP 354 — Separação e Validação de Materiais (Diretrizes para Desenvolvimento)'),
-    el('p', { class: 'muted' }, 'Documento funcional que define como será a funcionalidade do sistema final no TeepMES. Especifica a solução e operação do módulo de separação de materiais.'),
+    el('div', { style: 'font-weight:700; margin-bottom:16px' }, 'DDP 354 — Separação e Validação de Materiais'),
+    el('p', { class: 'muted' }, 'Guia operacional detalhado do processo no chão de fábrica, cobrindo filtros, checklist, alternativos, finalização parcial/total, bloqueios e rastreabilidade.'),
     
     el('div', { class: 'grid' }, [
+      // Fluxo operacional
       el('div', {}, [
-        el('h4', {}, '1. Objetivo do Sistema'),
-        el('p', {}, 'Assegurar que todos os materiais requeridos por OP estejam separados e validados antes da produção, com controle de alternativos, rastreabilidade e autoria do operador. O sistema deve integrar-se ao ERP da Facchini para obter dados em tempo real.'),
+        el('h4', {}, '1. Fluxo Operacional (passo a passo)'),
+        el('ol', {}, [
+          el('li', {}, 'Operador faz login no TeepMES (autoria registrada).'),
+          el('li', {}, 'Na aba “Separar Materiais”, aplica filtros (data/OP/produto/operação) e seleciona a OP desejada.'),
+          el('li', {}, 'O sistema cria/retoma a separação e abre o checklist de itens (BOM).'),
+          el('li', {}, 'Quantidade atendida oficial inicia preenchida com a quantidade prevista; a confirmação é derivada da falta (0 = confirmado).'),
+          el('li', {}, 'Se faltar item oficial, o operador pode lançar quantidade por alternativo quando houver cadastro de alternativas.'),
+          el('li', {}, 'Ao salvar: se todos itens sem falta → Finalização Total; caso contrário → Parcial.'),
+          el('li', {}, 'Finalização Total envia registro ao histórico e remove a separação ativa; Parcial mantém o progresso para retomada.'),
+        ])
       ]),
-      
+
+      // Filtros de busca
       el('div', {}, [
-        el('h4', {}, '2. Funcionalidades do Sistema Final'),
+        el('h4', {}, '2. Filtros da tela “Separar Materiais”'),
         el('ul', {}, [
-          el('li', {}, 'Autenticação do operador (responsável por todas as ações)'),
-          el('li', {}, 'Busca e seleção de OP por código ou por produto'),
-          el('li', {}, 'Filtros na busca: Todas, Parciais, Sem Separação (ativas)'),
-          el('li', {}, 'Filtros por data, OP, produto e operação'),
-          el('li', {}, 'Checklist de materiais (código, depósito, localização, qtde, descrição, unidade)'),
-          el('li', {}, 'Confirmação item a item (check) com rastreabilidade (operador e timestamp)'),
-          el('li', {}, 'Seleção de itens alternativos pré-cadastrados, com busca e registro de substituição'),
-          el('li', {}, 'Finalização automática (detecta total/parcial baseado nos itens confirmados)'),
-          el('li', {}, 'Bloqueio de edição após finalização (total/parcial) para garantir integridade dos dados'),
-          el('li', {}, 'Filtro por operação na busca de OPs (CORTE, SOLDAGEM, MONTAGEM)'),
-          el('li', {}, 'Consulta de Separações Parciais (via filtro "Parciais") e Finalizadas (menu dedicado)'),
-          el('li', {}, 'Relatórios detalhados: separados vs pendentes, alternativos, rastreabilidade'),
-          el('li', {}, 'Relatórios consolidados com seleção múltipla e exportação PDF/CSV'),
+          el('li', {}, 'Período (Data Início/Fim): filtra OPs pela data de criação.'),
+          el('li', {}, 'Código da OP, Código do Produto e Operação (ex.: CORTE, SOLDAGEM, MONTAGEM).'),
+          el('li', {}, 'Status: “Todas”, “Parciais” (já houve salvamento parcial) e “Sem Separação”.'),
         ])
       ]),
       
+      // Checklist e comportamento dos campos
       el('div', {}, [
-        el('h4', {}, '3. Integração com ERP'),
-        el('div', { style: 'background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 16px; margin-top: 16px;' }, [
-          el('div', { style: 'font-weight: 600; color: #0c4a6e; margin-bottom: 12px;' }, '🔗 INTEGRAÇÃO COM ERP DA FACCHINI'),
-          el('p', { style: 'margin: 0 0 12px 0; color: #0369a1; font-weight: 600;' }, 'A integração será definida por configurações entre as partes: ERP, Facchini e Teep.'),
-          el('ul', { style: 'margin: 0; color: #0369a1;' }, [
-            el('li', {}, 'OPs ativas e seus insumos (BOM) devem vir do ERP via integração'),
-            el('li', {}, 'Cadastro de itens: código, descrição, unidade, depósito e localização fixa'),
-            el('li', {}, 'Mapa de alternativos por item padrão (até N alternativos)'),
-            el('li', {}, 'Dados de operação (CORTE, SOLDAGEM, MONTAGEM) por OP'),
-            el('li', {}, 'Retorno de eventos: separação total/parcial, substituições e responsável'),
-            el('li', {}, 'Sincronização de dados conforme configuração definida'),
-            el('li', {}, 'Validação de disponibilidade de materiais'),
-          ])
-        ])
-      ]),
-      
-      el('div', {}, [
-        el('h4', {}, '4. Operação do Sistema'),
+        el('h4', {}, '3. Checklist de Itens (tabela)'),
         el('ul', {}, [
-          el('li', {}, 'Operador faz login no sistema TeepMES'),
-          el('li', {}, 'Sistema busca OPs ativas do ERP da Facchini'),
-          el('li', {}, 'Operador seleciona OP para separação'),
-          el('li', {}, 'Sistema carrega BOM da OP do ERP'),
-          el('li', {}, 'Operador confirma cada item após separação física'),
-          el('li', {}, 'Sistema registra substituições quando alternativos são utilizados'),
-          el('li', {}, 'Sistema finaliza separação (total ou parcial)'),
-          el('li', {}, 'Dados são enviados de volta ao ERP para atualização de estoque'),
-          el('li', {}, 'Relatórios são gerados para auditoria e controle'),
+          el('li', {}, 'Colunas: Código, Depósito, Localização, Qtde original, Quantidade atendida (oficial), Falta, Descrição, Unidade, Ações.'),
+          el('li', {}, 'A confirmação é automática: quando Falta = 0 o item fica confirmado. O checkbox fica desabilitado (somente leitura).'),
+          el('li', {}, 'Quantidade atendida oficial pode ser ajustada respeitando limites: 0 ≤ oficial ≤ (qtde - alternativo).'),
+          el('li', {}, 'Barra de progresso mostra distribuição OFICIAL vs ALTERNATIVO no item.'),
+          el('li', {}, 'Botões: “Alternativos” (quando houver) e “Desenho” (PDF do item).'),
         ])
       ]),
       
+      // Alternativos
       el('div', {}, [
-        el('h4', {}, '5. Fluxo de Dados'),
-        el('div', { style: 'background: #f0fdf4; border: 1px solid #22c55e; border-radius: 8px; padding: 16px; margin-top: 16px;' }, [
-          el('div', { style: 'font-weight: 600; color: #166534; margin-bottom: 12px;' }, '📊 FLUXO DE DADOS ERP ↔ TeepMES'),
-          el('p', { style: 'margin: 0 0 12px 0; color: #15803d; font-weight: 600;' }, 'Fluxo definido por configurações entre ERP, Facchini e Teep:'),
-          el('ol', { style: 'margin: 0; color: #15803d;' }, [
-            el('li', {}, 'ERP → TeepMES: OPs ativas, BOM, itens, alternativos'),
-            el('li', {}, 'TeepMES: Processa separação, registra confirmações'),
-            el('li', {}, 'TeepMES → ERP: Eventos de separação, substituições, finalizações'),
-            el('li', {}, 'ERP: Atualiza estoque, registra movimentações'),
-            el('li', {}, 'TeepMES: Gera relatórios e mantém histórico'),
-          ])
-        ])
-      ]),
-      
-      el('div', {}, [
-        el('h4', {}, '6. Regras de Negócio'),
+        el('h4', {}, '4. Alternativos (quando aplicável)'),
         el('ul', {}, [
-          el('li', {}, 'Finalização automática: Total (100% confirmados) ou Parcial (pendentes)'),
-          el('li', {}, 'Registrar substituição contendo: item padrão, alternativo, operador e data'),
-          el('li', {}, 'Registrar timestamps: início da separação e finalização (total/parcial)'),
-          el('li', {}, 'Retomar parcial preserva progresso (itens já confirmados/substituídos)'),
-          el('li', {}, 'Bloqueio de edição para itens confirmados em separações parciais'),
-          el('li', {}, 'Bloqueio total para separações finalizadas completamente'),
-          el('li', {}, 'Validação de disponibilidade de estoque antes da separação'),
+          el('li', {}, 'A lista de alternativos é definida no cadastro e aberta via botão “Alternativos”.'),
+          el('li', {}, 'Ao escolher um alternativo, o operador informa a quantidade alternativa a ser atendida.'),
+          el('li', {}, 'A soma OFICIAL + ALTERNATIVO nunca pode ultrapassar a quantidade original.'),
+          el('li', {}, 'O sistema registra substituição: item padrão, item alternativo, quantidade, operador e data/hora (rastreabilidade).'),
         ])
       ]),
       
+      // Finalização e retomada
       el('div', {}, [
-        el('h4', {}, '7. Requisitos Técnicos'),
+        el('h4', {}, '5. Salvar/Finalizar (Total x Parcial)'),
         el('ul', {}, [
-          el('li', {}, 'Usabilidade em ambiente fabril (cliques grandes, contraste, responsivo)'),
-          el('li', {}, 'Rastreabilidade: logs de alteração por usuário e horário'),
-          el('li', {}, 'Segurança: autenticação de operador com usuário e senha, trilha de auditoria'),
-          el('li', {}, 'Integração com ERP da Facchini (configurações definidas entre ERP, Facchini e Teep)'),
-          el('li', {}, 'Sincronização de dados bidirecional'),
+          el('li', {}, 'Finalização Total: todos os itens sem falta. Bloqueia a separação e envia para Histórico.'),
+          el('li', {}, 'Finalização Parcial: existem itens com falta. Mantém a separação disponível para retomada, com itens já confirmados respeitando mínimos salvos.'),
+          el('li', {}, 'Retomada Parcial: itens já confirmados ficam bloqueados para reduzir além do mínimo registrado anteriormente.'),
         ])
       ]),
       
+      // Regras de bloqueio e validação
       el('div', {}, [
-        el('h4', {}, '8. Estrutura de Dados'),
+        el('h4', {}, '6. Regras de Bloqueio e Validações'),
         el('ul', {}, [
-          el('li', {}, 'OP: id, produto (código/descrição), operação, status, data criação'),
-          el('li', {}, 'Item do checklist: baseCode, currentCode, descrição, unidade, localização, quantidade, confirmado, substitution, confirmedBy, confirmedAt, locked'),
-          el('li', {}, 'Sessão: operador (usuário, nome, loginAt)'),
-          el('li', {}, 'Separação: orderId, productCode, productDesc, operacao, operator, startedAt, finishedAt, finalizeMode, items'),
-          el('li', {}, 'Histórico: separações finalizadas para relatórios e auditoria'),
+          el('li', {}, 'Limites de edição: o valor oficial não pode cair abaixo do mínimo já salvo em finalizações anteriores (integridade).'),
+          el('li', {}, 'Quantidade alternativa respeita teto: até (qtde original − mínimo oficial).'),
+          el('li', {}, 'Botão “Salvar Separação” fica desabilitado se houver valores fora dos limites (o sistema corrige e informa).'),
         ])
       ]),
       
+      // Rastreabilidade e Relatórios
       el('div', {}, [
-        el('h4', {}, '9. Propriedade Intelectual'),
-        el('div', { style: 'background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin-top: 16px;' }, [
-          el('div', { style: 'font-weight: 600; color: #dc2626; margin-bottom: 8px;' }, '⚠️ AVISO DE PROPRIEDADE INTELECTUAL'),
-          el('p', { style: 'margin: 0; color: #7f1d1d;' }, 'Esta interface é de propriedade exclusiva da TeepMES. O objetivo é orientar as partes envolvidas sobre a necessidade de desenvolvimento da Facchini junto ao sistema TeepMES.'),
-          el('p', { style: 'margin: 8px 0 0 0; font-weight: 600; color: #dc2626;' }, 'Cópia ou compartilhamento com pessoas ou empresas não conectadas ao projeto está PROIBIDO.')
+        el('h4', {}, '7. Rastreabilidade e Relatórios'),
+        el('ul', {}, [
+          el('li', {}, 'Cada alteração registra operador e data/hora (confirmações e substituições).'),
+          el('li', {}, '“Separações Finalizadas” exibe histórico (apenas Total) com filtros e geração de relatórios.'),
+          el('li', {}, 'A aba “Relatórios” permite combinar Totais e Parciais, selecionar múltiplas OPs e exportar PDF/CSV.'),
         ])
-      ])
+      ]),
+      
+      // Integração ERP (resumo)
+      el('div', {}, [
+        el('h4', {}, '8. Integração com ERP (resumo)'),
+        el('ul', {}, [
+          el('li', {}, 'Entrada: OPs, BOM, itens, localizações e mapa de alternativos.'),
+          el('li', {}, 'Saída: eventos de separação (total/parcial), substituições e autoria.'),
+          el('li', {}, 'Sincronismo e política de atualização definidos em configuração entre Facchini, ERP e Teep.'),
+        ])
+      ]),
     ])
   ]);
 }

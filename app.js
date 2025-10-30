@@ -40,9 +40,9 @@ const Session = {
 // ===== MOCK DATA =====
 function seedMockData() {
   const itemsCatalog = [
-    { code: 'MAT-0001', description: 'Chapa Aço 3mm', unit: 'PC', location: 'DEP-01 / A-01' },
-    { code: 'MAT-0002', description: 'Parafuso M8x30', unit: 'PC', location: 'DEP-01 / B-05' },
-    { code: 'MAT-0003', description: 'Porca M8', unit: 'PC', location: 'DEP-02 / C-10' },
+    { code: 'MAT-0001', description: 'Chapa Aço 3mm', unit: 'PC', location: 'DEP-01 / A-01', drawingUrl: null },
+    { code: 'MAT-0002', description: 'Parafuso M8x30', unit: 'PC', location: 'DEP-01 / B-05', drawingUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' },
+    { code: 'MAT-0003', description: 'Porca M8', unit: 'PC', location: 'DEP-02 / C-10', drawingUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' },
     { code: 'MAT-0004', description: 'Arruela M8', unit: 'PC', location: 'DEP-02 / C-11' },
     { code: 'MAT-0100', description: 'Parafuso M8x32 (Alt 1)', unit: 'PC', location: 'DEP-01 / B-06' },
     { code: 'MAT-0101', description: 'Parafuso M8x35 (Alt 2)', unit: 'PC', location: 'DEP-01 / B-07' },
@@ -204,6 +204,8 @@ function buildChecklistFromOrder(orderId) {
       baseCode: req.code,
       currentCode: req.code,
       quantity: req.quantity,
+      attended: 0,           // quantidade atendida com item oficial
+      attendedAlt: 0,       // quantidade atendida com alternativo (bloqueada para reduzir)
       unit: item?.unit ?? 'UN',
       location: item?.location ?? '-',
       description: item?.description ?? req.code,
@@ -600,6 +602,12 @@ function ViewChecklist(orderId) {
     ]);
   }
 
+  function remainingQty(item) {
+    const a = Number(item.attended || 0);
+    const b = Number(item.attendedAlt || 0);
+    return Math.max(0, Number(item.quantity) - a - b);
+  }
+
   function renderTable() {
     const wrapper = el('div', { class: 'card' });
     const table = el('table', { class: 'table' });
@@ -607,7 +615,9 @@ function ViewChecklist(orderId) {
       el('th', { class: 'col-code' }, 'CODIGO'),
       el('th', { class: 'col-dep' }, 'DEPOSITO'),
       el('th', { class: 'col-loc' }, 'Localização'),
-      el('th', { class: 'col-qty' }, 'qtde'),
+      el('th', { class: 'col-qty' }, 'qtde ORIGINAL'),
+      el('th', { class: 'col-qty' }, 'qtde ATENDIMENTO'),
+      el('th', { class: 'col-qty' }, 'FALTA'),
       el('th', { class: 'col-desc' }, 'Descrição'),
       el('th', { class: 'col-unit' }, 'Un'),
       el('th', { class: 'col-actions' }, 'Ações')
@@ -618,9 +628,11 @@ function ViewChecklist(orderId) {
       const dep = (it.location || '').split('/')[0].trim();
       const tr = el('tr', { class: it.locked ? 'locked' : '' });
       
+      // Confirmação automática baseada no saldo a faltar
+      const faltaCalc = remainingQty(it);
       const chk = el('input', { type: 'checkbox' });
-      chk.checked = it.confirmed;
-      chk.disabled = it.locked;
+      chk.checked = faltaCalc === 0;
+      chk.disabled = true; // confirmação é derivada da quantidade; não permitir edição manual
       chk.addEventListener('change', () => {
         if (it.locked) {
           chk.checked = it.confirmed;
@@ -659,17 +671,78 @@ function ViewChecklist(orderId) {
         console.log('Chamando chooseAlternative...');
         chooseAlternative(idx);
       });
+
+      // Botão Desenho (PDF)
+      const btnDraw = document.createElement('button');
+      btnDraw.className = 'btn btn-ghost small';
+      btnDraw.textContent = 'Desenho';
+      btnDraw.style.marginLeft = '6px';
+      btnDraw.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const { itemsCatalog } = getCatalog();
+        const item = itemsCatalog.find(i => i.code === it.currentCode);
+        const url = item?.drawingUrl; // futuramente virá da integração ERP ↔ TEEP
+        if (url) {
+          try { window.open(url, '_blank'); } catch { /* noop */ }
+        } else {
+          openConfirm(
+            'Desenho do Produto',
+            'Arquivo.pdf será mostrado na versão do sistema quando a integração estiver associando o arquivo ao produto dessa lista.',
+            () => {},
+            'parcial' // tom neutro/amarelo para aviso
+          );
+        }
+      });
       
       tr.appendChild(el('td', {}, [chk, ' ', it.currentCode]));
       tr.appendChild(el('td', {}, dep));
       tr.appendChild(el('td', {}, it.location));
       tr.appendChild(el('td', { style: 'text-align:right' }, String(it.quantity)));
+
+      // Campo atendido (editável apenas para oficial)
+      const inpAtt = el('input', { type: 'number', min: '0', step: '1', value: String(it.attended || 0), style: 'width:80px; text-align:right' });
+      const maxOfficial = it.quantity - (it.attendedAlt || 0); // teto considerando o que já foi atendido via ALT
+      inpAtt.max = String(maxOfficial);
+      inpAtt.disabled = it.locked; // antes de confirmar, não está locked
+      inpAtt.addEventListener('change', () => {
+        let v = Number(inpAtt.value || 0);
+        if (Number.isNaN(v)) v = 0;
+        if (v < 0) v = 0; // permitir ajustes livres antes da confirmação
+        if (v > maxOfficial) v = maxOfficial; // não ultrapassar limite
+        updateSeparation(orderId, rec => {
+          rec.items[idx].attended = v;
+          // auto confirmar se zerou falta
+          const falta = remainingQty(rec.items[idx]);
+          rec.items[idx].confirmed = falta === 0;
+        });
+        inpAtt.value = String(v);
+        rerender();
+      });
+      tr.appendChild(el('td', { style: 'text-align:right' }, inpAtt));
+
+      tr.appendChild(el('td', { style: 'text-align:right' }, String(remainingQty(it))));
       tr.appendChild(el('td', {}, [
         el('div', {}, it.description),
-        it.substitution ? el('div', { class: 'muted', style: 'font-size:12px' }, `Substituído: ${it.baseCode} → ${it.currentCode}`) : null
+        (it.attended && it.attended > 0) ? el('div', { class: 'status-chip status-ok' }, `Oficial atendido: ${it.attended}`) : null,
+        (it.attendedAlt && it.attendedAlt > 0) ? el('div', { class: 'status-chip status-sub' }, `Alt atendido${it.lastAltUsed ? ` (${it.lastAltUsed})` : ''}: ${it.attendedAlt}`) : null,
+        (() => {
+          const total = Number(it.quantity) || 0;
+          const off = Math.min(total, Number(it.attended || 0));
+          const alt = Math.min(Math.max(0, total - off), Number(it.attendedAlt || 0));
+          const offPct = total > 0 ? Math.round((off / total) * 100) : 0;
+          const altPct = total > 0 ? Math.round((alt / total) * 100) : 0;
+          const bar = el('div', { class: 'progress' }, [
+            el('div', { class: 'progress-bar-official', style: `width:${offPct}%;` }),
+            el('div', { class: 'progress-bar-alt', style: `width:${altPct}%;` })
+          ]);
+          const label = el('div', { class: 'muted', style: 'font-size:12px' }, `Progresso: OF ${off} | ALT ${alt} (${offPct + altPct}%)`);
+          return el('div', {}, [bar, label]);
+        })(),
+        remainingQty(it) > 0 ? el('div', { class: 'status-chip status-pend' }, `Falta: ${remainingQty(it)}`) : el('div', { class: 'status-chip status-ok' }, 'Completo')
       ]));
       tr.appendChild(el('td', {}, it.unit));
-      tr.appendChild(el('td', { style: 'text-align:center' }, btnAlt));
+      tr.appendChild(el('td', { style: 'text-align:center' }, [btnAlt, btnDraw]));
       tbody.appendChild(tr);
     }
     
@@ -701,7 +774,7 @@ function ViewChecklist(orderId) {
   }
 
   function onSave() {
-    const pending = separation.items.filter(i => !i.confirmed).length;
+    const pending = separation.items.filter(i => (i.quantity - (i.attended || 0) - (i.attendedAlt || 0)) > 0).length;
     const mode = pending === 0 ? 'total' : 'parcial';
     
     if (mode === 'total') {
@@ -749,12 +822,11 @@ function ViewChecklist(orderId) {
     container.appendChild(ViewChecklist(orderId));
   }
 
-  const root = el('div', { class: 'two-col' }, [
-    el('div', {}, [
-      renderHeader(),
-      renderTable()
-    ]),
-    renderSummary()
+  // Layout: resumo no topo para ganhar espaço lateral
+  const root = el('div', { class: 'grid' }, [
+    renderHeader(),
+    renderSummary(),
+    renderTable()
   ]);
 
   return root;
@@ -797,17 +869,27 @@ function chooseAlternative(itemIndex) {
     if (!selected) return;
     updateSeparation(currentOrderId, rec => {
       const recItem = rec.items[itemIndex];
-      recItem.currentCode = selected.code;
-      recItem.description = selected.description;
-      recItem.unit = selected.unit;
-      recItem.location = selected.location;
+      // Definir (não somar) a quantidade de atendimento com alternativo
+      const maxAlt = Math.max(0, recItem.quantity - (recItem.attended || 0));
+      const currentAlt = recItem.attendedAlt || 0;
+      let qty = Number(prompt(`Quantidade a atender com alternativo (${selected.code})?\nAtual: ${currentAlt} | Máximo: ${maxAlt}`, String(currentAlt)));
+      if (!Number.isFinite(qty) || qty < 0) qty = currentAlt;
+      if (qty > maxAlt) qty = maxAlt;
+
+      recItem.attendedAlt = qty;
+      // Registrar última utilização de alternativo (sem mudar o item oficial)
+      recItem.lastAltUsed = selected.code;
       recItem.substitution = { 
         from: recItem.baseCode, 
         to: selected.code, 
         operator: Session.operator?.username, 
-        at: nowIso() 
+        at: nowIso(),
+        qty
       };
       rec.history.push({ type: 'substitution', ...recItem.substitution });
+      // Auto confirmar se zerou falta
+      const falta = Math.max(0, recItem.quantity - (recItem.attended || 0) - (recItem.attendedAlt || 0));
+      recItem.confirmed = falta === 0;
     });
     setTimeout(() => {
       const route = location.hash;
@@ -839,15 +921,33 @@ function openAlternativesDialog(items, onSelect) {
   function render(itemsToRender) {
     list.innerHTML = '';
     for (const it of itemsToRender) {
+      const actions = el('div', {});
+      // Botão Desenho
+      const btnDraw = el('button', { class: 'btn btn-ghost', onclick: () => {
+        const url = it.drawingUrl; // virá da integração ERP ↔ TEEP
+        if (url) {
+          try { window.open(url, '_blank'); } catch {}
+        } else {
+          openConfirm(
+            'Desenho do Produto',
+            'Arquivo.pdf será mostrado na versão do sistema quando a integração estiver associando o arquivo ao produto dessa lista.',
+            () => {},
+            'parcial'
+          );
+        }
+      } }, 'Desenho');
+
+      // Botão Selecionar
+      const btnSelect = el('button', { class: 'btn', onclick: () => { dlg.close(); onSelect?.(it); } }, 'Selecionar');
+      actions.appendChild(btnDraw);
+      actions.appendChild(btnSelect);
+
       const row = el('div', { class: 'op-item' }, [
         el('div', {}, [
           el('div', { style: 'font-weight:600' }, `${it.code} • ${it.description}`),
           el('div', { class: 'muted' }, `${it.location} • ${it.unit}`),
         ]),
-        el('div', {}, el('button', { 
-          class: 'btn', 
-          onclick: () => { dlg.close(); onSelect?.(it); } 
-        }, 'Selecionar'))
+        actions
       ]);
       list.appendChild(row);
     }

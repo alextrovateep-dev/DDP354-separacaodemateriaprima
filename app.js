@@ -169,6 +169,14 @@ function saveHistory(h) {
 const fmtDateTime = (iso) => new Date(iso).toLocaleString();
 const nowIso = () => new Date().toISOString();
 
+// Quantidade que ainda falta para o item (global, para uso fora das views)
+function remainingQtyOf(item) {
+  const official = Number(item.attended || 0);
+  const alt = Number(item.attendedAlt || 0);
+  const total = Number(item.quantity || 0);
+  return Math.max(0, total - official - alt);
+}
+
 // ===== DOM HELPERS =====
 const el = (tag, attrs = {}, children = []) => {
   const e = document.createElement(tag);
@@ -204,7 +212,7 @@ function buildChecklistFromOrder(orderId) {
       baseCode: req.code,
       currentCode: req.code,
       quantity: req.quantity,
-      attended: 0,           // quantidade atendida com item oficial
+      attended: req.quantity,           // quantidade atendida com item oficial (pré-preenchido com previsto)
       attendedAlt: 0,       // quantidade atendida com alternativo (bloqueada para reduzir)
       unit: item?.unit ?? 'UN',
       location: item?.location ?? '-',
@@ -286,6 +294,12 @@ function finalizeSeparation(orderId, mode) {
       }
     }
     
+    // Ao finalizar, congelar mínimos (não permitir reduzir abaixo do salvo)
+    rec.items.forEach(item => {
+      item.minAttended = item.attended || 0;
+      item.minAttendedAlt = item.attendedAlt || 0;
+    });
+
     // Bloquear itens conforme o modo
     if (mode === 'total') {
       rec.items.forEach(item => item.locked = true);
@@ -610,18 +624,27 @@ function ViewChecklist(orderId) {
 
   function renderTable() {
     const wrapper = el('div', { class: 'card' });
+    // reset invalid state per render
+    let hasInvalid = false;
     const table = el('table', { class: 'table' });
     const thead = el('thead', {}, el('tr', {}, [
       el('th', { class: 'col-code' }, 'CODIGO'),
       el('th', { class: 'col-dep' }, 'DEPOSITO'),
       el('th', { class: 'col-loc' }, 'Localização'),
       el('th', { class: 'col-qty' }, 'qtde ORIGINAL'),
-      el('th', { class: 'col-qty' }, 'qtde ATENDIMENTO'),
+      el('th', { class: 'col-qty' }, 'quantidade atendida'),
       el('th', { class: 'col-qty' }, 'FALTA'),
       el('th', { class: 'col-desc' }, 'Descrição'),
       el('th', { class: 'col-unit' }, 'Un'),
       el('th', { class: 'col-actions' }, 'Ações')
     ]));
+    const legend = el('div', { class: 'muted', style: 'margin: 0 0 8px 0; font-size:12px' }, [
+      el('span', { class: 'status-chip status-ok' }, 'Oficial'), ' ',
+      el('span', { class: 'status-chip status-sub' }, 'Alternativo'), ' ',
+      el('span', { class: 'status-chip status-pend' }, 'Falta')
+    ]);
+    wrapper.appendChild(legend);
+
     const tbody = el('tbody');
     
     for (const [idx, it] of separation.items.entries()) {
@@ -701,15 +724,18 @@ function ViewChecklist(orderId) {
       tr.appendChild(el('td', { style: 'text-align:right' }, String(it.quantity)));
 
       // Campo atendido (editável apenas para oficial)
-      const inpAtt = el('input', { type: 'number', min: '0', step: '1', value: String(it.attended || 0), style: 'width:80px; text-align:right' });
+      const minOfficial = it.minAttended || 0;
+      const inpAtt = el('input', { type: 'number', min: String(minOfficial), step: '1', value: String(it.attended || 0), style: 'width:80px; text-align:right' });
       const maxOfficial = it.quantity - (it.attendedAlt || 0); // teto considerando o que já foi atendido via ALT
       inpAtt.max = String(maxOfficial);
       inpAtt.disabled = it.locked; // antes de confirmar, não está locked
-      inpAtt.addEventListener('change', () => {
-        let v = Number(inpAtt.value || 0);
-        if (Number.isNaN(v)) v = 0;
-        if (v < 0) v = 0; // permitir ajustes livres antes da confirmação
+      const help = el('div', { class: 'help-error', style: 'display:none' }, '');
+      const validate = () => {
+        let v = Number.parseInt(inpAtt.value, 10);
+        if (Number.isNaN(v)) v = minOfficial;
+        if (v < minOfficial) v = minOfficial; // não reduzir abaixo do salvo anteriormente
         if (v > maxOfficial) v = maxOfficial; // não ultrapassar limite
+        const invalid = (Number.parseInt(inpAtt.value, 10) !== v);
         updateSeparation(orderId, rec => {
           rec.items[idx].attended = v;
           // auto confirmar se zerou falta
@@ -717,11 +743,29 @@ function ViewChecklist(orderId) {
           rec.items[idx].confirmed = falta === 0;
         });
         inpAtt.value = String(v);
+        if (invalid) {
+          inpAtt.classList.add('input-error');
+          help.textContent = `Valor ajustado ao limite (mín ${minOfficial} • máx ${maxOfficial}).`;
+          help.style.display = '';
+          hasInvalid = true;
+        } else {
+          inpAtt.classList.remove('input-error');
+          help.style.display = 'none';
+        }
+        // atualizar estado global de invalidade
+        window._hasInvalid = hasInvalid;
         rerender();
-      });
+      };
+      inpAtt.addEventListener('change', validate);
+      inpAtt.addEventListener('blur', validate);
       tr.appendChild(el('td', { style: 'text-align:right' }, inpAtt));
+      tr.appendChild(el('td', { style: 'text-align:right' }, ''));// placeholder alinhamento (será removido abaixo)
+      // substitui a célula anterior de FALTA com valor correto após inputs
 
-      tr.appendChild(el('td', { style: 'text-align:right' }, String(remainingQty(it))));
+      tr.cells && tr.cells.length>0; // noop
+      // FALTA
+      const faltaCell = el('td', { style: 'text-align:right' }, String(remainingQty(it)));
+      tr.replaceChild(faltaCell, tr.lastChild);
       tr.appendChild(el('td', {}, [
         el('div', {}, it.description),
         (it.attended && it.attended > 0) ? el('div', { class: 'status-chip status-ok' }, `Oficial atendido: ${it.attended}`) : null,
@@ -743,12 +787,18 @@ function ViewChecklist(orderId) {
       ]));
       tr.appendChild(el('td', {}, it.unit));
       tr.appendChild(el('td', { style: 'text-align:center' }, [btnAlt, btnDraw]));
+      // mensagens de ajuda
+      const fullRow = el('tr');
+      fullRow.appendChild(el('td', { colspan: 8 }, help));
+      tbody.appendChild(fullRow);
       tbody.appendChild(tr);
     }
     
     table.appendChild(thead);
     table.appendChild(tbody);
     wrapper.appendChild(table);
+    // expõe estado invalid para o resumo
+    window._hasInvalid = hasInvalid;
     return wrapper;
   }
 
@@ -767,7 +817,8 @@ function ViewChecklist(orderId) {
       el('div', { class: 'grid' }, [
         el('button', { 
           class: 'btn', 
-          onclick: () => onSave()
+          onclick: () => onSave(),
+          disabled: window._hasInvalid === true
         }, 'Salvar Separação')
       ])
     ]);
@@ -867,36 +918,7 @@ function chooseAlternative(itemIndex) {
     
     openAlternativesDialog(availableAlternatives, (selected) => {
     if (!selected) return;
-    updateSeparation(currentOrderId, rec => {
-      const recItem = rec.items[itemIndex];
-      // Definir (não somar) a quantidade de atendimento com alternativo
-      const maxAlt = Math.max(0, recItem.quantity - (recItem.attended || 0));
-      const currentAlt = recItem.attendedAlt || 0;
-      let qty = Number(prompt(`Quantidade a atender com alternativo (${selected.code})?\nAtual: ${currentAlt} | Máximo: ${maxAlt}`, String(currentAlt)));
-      if (!Number.isFinite(qty) || qty < 0) qty = currentAlt;
-      if (qty > maxAlt) qty = maxAlt;
-
-      recItem.attendedAlt = qty;
-      // Registrar última utilização de alternativo (sem mudar o item oficial)
-      recItem.lastAltUsed = selected.code;
-      recItem.substitution = { 
-        from: recItem.baseCode, 
-        to: selected.code, 
-        operator: Session.operator?.username, 
-        at: nowIso(),
-        qty
-      };
-      rec.history.push({ type: 'substitution', ...recItem.substitution });
-      // Auto confirmar se zerou falta
-      const falta = Math.max(0, recItem.quantity - (recItem.attended || 0) - (recItem.attendedAlt || 0));
-      recItem.confirmed = falta === 0;
-    });
-    setTimeout(() => {
-      const route = location.hash;
-      if (route.startsWith('#/checklist/')) {
-        render(route);
-      }
-    }, 100);
+    openAltQuantityDialog(selected, currentOrderId, itemIndex);
   });
   
   } catch (error) {
@@ -976,6 +998,88 @@ function openAlternativesDialog(items, onSelect) {
   
   } catch (error) {
     console.error('Erro em openAlternativesDialog:', error);
+  }
+}
+
+// ===== ALT QUANTITY DIALOG =====
+function openAltQuantityDialog(altItem, orderId, itemIndex) {
+  try {
+    const dlg = document.getElementById('dialog-alt-qty');
+    const title = document.getElementById('altq-title');
+    const info = document.getElementById('altq-info');
+    const input = document.getElementById('altq-input');
+    const help = document.getElementById('altq-help');
+    const btnClose = document.getElementById('altq-close');
+    const btnCancel = document.getElementById('altq-cancel');
+    const btnApply = document.getElementById('altq-apply');
+
+    const rec = getSeparations().find(s => s.orderId === orderId && !s.finishedAt);
+    if (!rec) return;
+    const it = rec.items[itemIndex];
+    const minAlt = it.minAttendedAlt || 0;
+    const minOfficial = it.minAttended || 0; // oficial mínimo já salvo (0 antes de finalizar)
+    // Máximo de ALT pode substituir o oficial até o mínimo permitido
+    const maxAlt = Math.max(0, it.quantity - minOfficial);
+    const currentAlt = it.attendedAlt || 0;
+
+    title.textContent = `Definir quantidade alternativa — ${altItem.code}`;
+    info.textContent = `Mínimo (já salvo): ${minAlt} • Atual: ${currentAlt} • Máximo: ${maxAlt} (pode substituir oficial até o mínimo ${minOfficial})`;
+    input.min = String(minAlt);
+    input.max = String(maxAlt);
+    input.value = String(Math.max(currentAlt, minAlt));
+    help.style.display = 'none';
+
+    const validate = () => {
+      let v = Number.parseInt(input.value, 10);
+      if (Number.isNaN(v)) v = Math.max(currentAlt, minAlt);
+      let invalid = false;
+      if (v < minAlt) { v = minAlt; invalid = true; }
+      if (v > maxAlt) { v = maxAlt; invalid = true; }
+      input.value = String(v);
+      help.style.display = invalid ? '' : 'none';
+      if (invalid) help.textContent = `Valor ajustado ao limite (mín ${minAlt} • máx ${maxAlt}).`;
+      return v;
+    };
+
+    const apply = (ev) => {
+      ev?.preventDefault();
+      const v = validate();
+      updateSeparation(orderId, r => {
+        const recItem = r.items[itemIndex];
+        // Ajustar oficial para manter soma <= original e respeitar mínimo oficial
+        const q = Number(recItem.quantity || 0);
+        const newAlt = v;
+        const capOfficial = q - newAlt;
+        const currentOfficial = Number(recItem.attended || 0);
+        const newOfficial = Math.max(minOfficial, Math.min(currentOfficial, capOfficial));
+        recItem.attended = newOfficial;
+        recItem.attendedAlt = newAlt;
+        recItem.lastAltUsed = altItem.code;
+        recItem.substitution = {
+          from: recItem.baseCode,
+          to: altItem.code,
+          operator: Session.operator?.username,
+          at: nowIso(),
+          qty: newAlt
+        };
+        recItem.confirmed = remainingQtyOf(recItem) === 0;
+        r.history.push({ type: 'substitution', ...recItem.substitution });
+      });
+      dlg.close();
+      const route = location.hash; if (route.startsWith('#/checklist/')) render(route);
+    };
+
+    const close = (ev) => { ev?.preventDefault(); dlg.close(); };
+
+    input.onchange = validate;
+    input.onblur = validate;
+    btnApply.onclick = apply;
+    btnCancel.onclick = close;
+    btnClose.onclick = close;
+
+    dlg.showModal();
+  } catch (e) {
+    console.error('Erro em openAltQuantityDialog:', e);
   }
 }
 

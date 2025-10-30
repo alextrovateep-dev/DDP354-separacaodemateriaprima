@@ -524,6 +524,17 @@ body {
   vertical-align: middle;
 }
 
+/* Input validation */
+.input-error {
+  border-color: #dc2626 !important;
+  background: #fef2f2;
+}
+.help-error {
+  color: #b91c1c;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
 .table tbody tr:hover {
   background: var(--panel-2);
 }

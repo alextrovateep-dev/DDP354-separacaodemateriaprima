@@ -119,6 +119,28 @@
         </div>
     </dialog>
 
+    <!-- Dialog: Quantidade de Alternativo -->
+    <dialog id="dialog-alt-qty" class="dialog">
+        <div class="card">
+            <div class="dialog-header">
+                <h3 id="altq-title">Definir quantidade alternativa</h3>
+                <button class="btn btn-ghost" id="altq-close">Fechar</button>
+            </div>
+            <div style="margin-bottom:12px" id="altq-info" class="muted"></div>
+            <form id="altq-form" class="form" method="dialog">
+                <label>
+                    <span id="altq-label">Quantidade</span>
+                    <input type="number" id="altq-input" step="1" min="0" value="0" />
+                </label>
+                <div id="altq-help" class="help-error" style="display:none"></div>
+                <div class="actions">
+                    <button class="btn btn-ghost" id="altq-cancel" value="cancel">Cancelar</button>
+                    <button class="btn" id="altq-apply" value="default">Aplicar</button>
+                </div>
+            </form>
+        </div>
+    </dialog>
+
     <dialog id="dialog-ddp-approval" class="dialog">
         <div class="card">
             <div class="dialog-header">

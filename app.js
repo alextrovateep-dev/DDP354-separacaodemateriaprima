@@ -212,8 +212,8 @@ function buildChecklistFromOrder(orderId) {
       baseCode: req.code,
       currentCode: req.code,
       quantity: req.quantity,
-      attended: req.quantity,           // quantidade atendida com item oficial (pré-preenchido com previsto)
-      attendedAlt: 0,       // quantidade atendida com alternativo (bloqueada para reduzir)
+      attended: req.quantity,           // inicia preenchido com o original para permitir salvar direto
+      attendedAlt: 0,        // alternativa inicia 0
       unit: item?.unit ?? 'UN',
       location: item?.location ?? '-',
       description: item?.description ?? req.code,
@@ -283,7 +283,11 @@ function finalizeSeparation(orderId, mode) {
   updateSeparation(orderId, rec => {
     rec.finishedAt = nowIso();
     rec.finalizeMode = mode;
-    // Confirmação é decisão do operador (checkbox). Não alterar aqui.
+    // Congelar mínimos salvos para não permitir redução futura
+    rec.items.forEach(item => {
+      item.minAttended = item.attended || 0;
+      item.minAttendedAlt = item.attendedAlt || 0;
+    });
     
     // Garantir dados da OP
     if (!rec.productCode || !rec.productDesc) {
@@ -295,18 +299,13 @@ function finalizeSeparation(orderId, mode) {
       }
     }
     
-    // Ao finalizar, congelar mínimos (não permitir reduzir abaixo do salvo)
-    rec.items.forEach(item => {
-      item.minAttended = item.attended || 0;
-      item.minAttendedAlt = item.attendedAlt || 0;
-    });
-    
-    // Bloquear itens conforme o modo
+    // Bloquear itens conforme o modo e falta
     if (mode === 'total') {
       rec.items.forEach(item => item.locked = true);
     } else if (mode === 'parcial') {
       rec.items.forEach(item => {
-        if (item.confirmed) {
+        const faltaNow = remainingQtyOf(item);
+        if (faltaNow === 0) {
           item.locked = true;
           console.log('Item bloqueado após finalização parcial:', item.baseCode);
         }
@@ -556,7 +555,7 @@ function ViewSeparar() {
       results = results.filter(o => {
         const sep = separations.find(s => s.orderId === o.id);
         if (!sep) return true;
-        return sep.items.every(item => !item.confirmed);
+        return sep.items.every(item => ((Number(item.attended||0) + Number(item.attendedAlt||0)) === 0));
       });
     }
     
@@ -652,28 +651,8 @@ function ViewChecklist(orderId) {
       const dep = (it.location || '').split('/')[0].trim();
       const tr = el('tr', { class: it.locked ? 'locked' : '' });
       
-      // Seleção manual do item separado
+      // Sem checkbox: confirmação é derivada das quantidades (falta == 0)
       const faltaCalc = remainingQty(it);
-      const chk = el('input', { type: 'checkbox' });
-      chk.checked = !!it.confirmed;
-      chk.disabled = !!it.locked;
-      chk.addEventListener('change', () => {
-        if (it.locked) {
-          chk.checked = it.confirmed;
-          return;
-        }
-        updateSeparation(orderId, rec => {
-          rec.items[idx].confirmed = chk.checked;
-          if (chk.checked) {
-            rec.items[idx].confirmedBy = Session.operator?.username;
-            rec.items[idx].confirmedAt = nowIso();
-          } else {
-            delete rec.items[idx].confirmedBy;
-            delete rec.items[idx].confirmedAt;
-          }
-        });
-        rerender();
-      });
       
       const btnAlt = document.createElement('button');
       btnAlt.className = it.locked ? 'btn btn-ghost small disabled' : 'btn btn-ghost small';
@@ -719,7 +698,7 @@ function ViewChecklist(orderId) {
         }
       });
       
-      tr.appendChild(el('td', {}, [chk, ' ', it.currentCode]));
+      tr.appendChild(el('td', {}, it.currentCode));
       tr.appendChild(el('td', {}, dep));
       tr.appendChild(el('td', {}, it.location));
       tr.appendChild(el('td', { style: 'text-align:right' }, String(it.quantity)));
@@ -799,7 +778,7 @@ function ViewChecklist(orderId) {
   }
 
   function renderSummary() {
-    const confirmed = separation.items.filter(i => i.confirmed).length;
+    const confirmed = separation.items.filter(i => remainingQty(i) === 0).length;
     const pending = separation.items.length - confirmed;
     const substituted = separation.items.filter(i => i.substitution).length;
     const hasInvalid = (() => {
@@ -836,7 +815,7 @@ function ViewChecklist(orderId) {
   }
 
   function onSave() {
-    const pending = separation.items.filter(i => !i.confirmed).length;
+    const pending = separation.items.filter(i => (Number(i.quantity || 0) - Number(i.attended || 0) - Number(i.attendedAlt || 0)) > 0).length;
     const mode = pending === 0 ? 'total' : 'parcial';
     
     if (mode === 'total') {

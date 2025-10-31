@@ -625,7 +625,7 @@ function ViewChecklist(orderId) {
 
   function renderTable() {
     const wrapper = el('div', { class: 'card' });
-    // reset invalid state per render
+    // reset invalid state per render (não usado mais para o botão)
     let hasInvalid = false;
     const table = el('table', { class: 'table' });
     const thead = el('thead', {}, el('tr', {}, [
@@ -750,8 +750,6 @@ function ViewChecklist(orderId) {
           inpAtt.classList.remove('input-error');
           help.style.display = 'none';
         }
-        // atualizar estado global de invalidade
-        window._hasInvalid = hasInvalid;
         rerender();
       };
       inpAtt.addEventListener('change', validate);
@@ -804,6 +802,22 @@ function ViewChecklist(orderId) {
     const confirmed = separation.items.filter(i => i.confirmed).length;
     const pending = separation.items.length - confirmed;
     const substituted = separation.items.filter(i => i.substitution).length;
+    const hasInvalid = (() => {
+      // Validação consistente a cada render
+      return separation.items.some(it => {
+        const q = Number(it.quantity || 0);
+        const ofc = Number(it.attended || 0);
+        const alt = Number(it.attendedAlt || 0);
+        const minOfc = Number(it.minAttended || 0);
+        const minAlt = Number(it.minAttendedAlt || 0);
+        const maxOfc = Math.max(0, q - alt);
+        const maxAlt = Math.max(0, q - ofc);
+        const ofcOk = ofc >= minOfc && ofc <= maxOfc;
+        const altOk = alt >= minAlt && alt <= maxAlt;
+        const somaOk = (ofc + alt) <= q;
+        return !(ofcOk && altOk && somaOk);
+      });
+    })();
     
     return el('div', { class: 'card sticky' }, [
       el('h4', {}, 'Resumo da Separação'),
@@ -815,8 +829,7 @@ function ViewChecklist(orderId) {
       el('div', { class: 'grid' }, [
         el('button', { 
           class: 'btn', 
-          onclick: () => onSave(),
-          disabled: window._hasInvalid === true
+          onclick: () => onSave()
         }, 'Salvar Separação')
       ])
     ]);

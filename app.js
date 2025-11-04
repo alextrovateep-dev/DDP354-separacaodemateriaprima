@@ -220,7 +220,8 @@ function buildChecklistFromOrder(orderId) {
       alternatives: alternatives[req.code] || [],
       confirmed: false,
       substitution: null,
-      locked: false
+      locked: false,
+      marked: false  // Checkbox guia visual (inicia desmarcado)
     };
   });
 }
@@ -628,6 +629,7 @@ function ViewChecklist(orderId) {
     let hasInvalid = false;
     const table = el('table', { class: 'table' });
     const thead = el('thead', {}, el('tr', {}, [
+      el('th', { class: 'col-mark' }, '✓'),
       el('th', { class: 'col-code' }, 'CODIGO'),
       el('th', { class: 'col-dep' }, 'DEPOSITO'),
       el('th', { class: 'col-loc' }, 'Localização'),
@@ -651,8 +653,57 @@ function ViewChecklist(orderId) {
       const dep = (it.location || '').split('/')[0].trim();
       const tr = el('tr', { class: it.locked ? 'locked' : '' });
       
-      // Sem checkbox: confirmação é derivada das quantidades (falta == 0)
+      // Checkbox guia visual (não afeta lógica de separação)
       const faltaCalc = remainingQty(it);
+      const hasAttended = (Number(it.attended || 0) + Number(it.attendedAlt || 0)) > 0;
+      const isComplete = faltaCalc === 0;
+      
+      // Auto-marcar ao reabrir baseado em quantidade
+      // Se separação já foi salva: auto-marcar itens com atendimento
+      // Se separação nova: só marca se usuário ticar manualmente
+      let shouldBeMarked = false;
+      if (separation.finishedAt) {
+        // Ao reabrir separação salva: auto-marcar baseado em quantidade
+        shouldBeMarked = hasAttended;
+      } else {
+        // Separação nova: usar estado salvo (se usuário ticou antes)
+        shouldBeMarked = !!it.marked;
+      }
+      
+      const chk = el('input', { type: 'checkbox' });
+      chk.checked = shouldBeMarked;
+      chk.disabled = !!it.locked;
+      
+      // Aplicar cores de fundo baseadas no checkbox e status do item
+      const updateRowColor = () => {
+        tr.classList.remove('item-marked-total', 'item-marked-parcial');
+        if (chk.checked) {
+          // Verificar se item está completo ou parcial
+          const itemFalta = remainingQty(it);
+          const itemComplete = itemFalta === 0;
+          
+          if (itemComplete) {
+            tr.classList.add('item-marked-total'); // Verde para completo
+          } else {
+            tr.classList.add('item-marked-parcial'); // Amarelo para parcial
+          }
+        }
+      };
+      
+      // Atualizar cor ao mudar checkbox
+      chk.addEventListener('change', () => {
+        if (it.locked) {
+          chk.checked = shouldBeMarked;
+          return;
+        }
+        updateSeparation(orderId, rec => {
+          rec.items[idx].marked = chk.checked;
+        });
+        updateRowColor();
+      });
+      
+      // Aplicar cor inicial
+      updateRowColor();
       
       const btnAlt = document.createElement('button');
       btnAlt.className = it.locked ? 'btn btn-ghost small disabled' : 'btn btn-ghost small';
@@ -698,6 +749,7 @@ function ViewChecklist(orderId) {
         }
       });
       
+      tr.appendChild(el('td', { style: 'text-align:center' }, chk));
       tr.appendChild(el('td', {}, it.currentCode));
       tr.appendChild(el('td', {}, dep));
       tr.appendChild(el('td', {}, it.location));
@@ -718,6 +770,7 @@ function ViewChecklist(orderId) {
         const invalid = (Number.parseInt(inpAtt.value, 10) !== v);
         updateSeparation(orderId, rec => {
           rec.items[idx].attended = v;
+          // Não auto-marcar: checkbox é manual
         });
         inpAtt.value = String(v);
         if (invalid) {
@@ -764,7 +817,7 @@ function ViewChecklist(orderId) {
       tr.appendChild(el('td', { style: 'text-align:center' }, [btnAlt, btnDraw]));
       // mensagens de ajuda
       const fullRow = el('tr');
-      fullRow.appendChild(el('td', { colspan: 8 }, help));
+      fullRow.appendChild(el('td', { colspan: 10 }, help));
       tbody.appendChild(fullRow);
       tbody.appendChild(tr);
     }
@@ -848,9 +901,10 @@ function ViewChecklist(orderId) {
         location.hash = '#/separar';
       } else {
         // Finalização parcial: manter na lista de separações mas marcada como parcial
-        // Não remover da lista, apenas marcar como finalizada parcialmente
-        // Voltar para a lista de separação
-        location.hash = '#/separar';
+        // Reabrir a checklist para mostrar cores atualizadas
+        setTimeout(() => {
+          location.hash = `#/checklist/${orderId}`;
+        }, 100);
       }
     };
     
@@ -1053,6 +1107,7 @@ function openAltQuantityDialog(altItem, orderId, itemIndex) {
           qty: newAlt
         };
         recItem.confirmed = remainingQtyOf(recItem) === 0;
+        // Não auto-marcar: checkbox é manual
         r.history.push({ type: 'substitution', ...recItem.substitution });
       });
       dlg.close();

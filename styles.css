@@ -542,6 +542,28 @@ body {
   background: var(--panel-2);
 }
 
+/* Cores de fundo para guia visual de separação */
+.table tbody tr.item-marked-total {
+  background-color: #dcfce7 !important; /* Verde bem claro para separação total */
+}
+
+.table tbody tr.item-marked-total:hover {
+  background-color: #bbf7d0 !important;
+}
+
+.table tbody tr.item-marked-parcial {
+  background-color: #fef9c3 !important; /* Amarelo bem claro para separação parcial */
+}
+
+.table tbody tr.item-marked-parcial:hover {
+  background-color: #fef08a !important;
+}
+
+.table .col-mark {
+  width: 50px;
+  text-align: center;
+}
+
 .table .col-code { width: 160px; }
 .table .col-dep { width: 120px; }
 .table .col-loc { width: 160px; }

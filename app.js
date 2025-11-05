@@ -901,10 +901,8 @@ function ViewChecklist(orderId) {
         location.hash = '#/separar';
       } else {
         // Finalização parcial: manter na lista de separações mas marcada como parcial
-        // Reabrir a checklist para mostrar cores atualizadas
-        setTimeout(() => {
-          location.hash = `#/checklist/${orderId}`;
-        }, 100);
+        // Voltar para a listagem de OPs para separação
+        location.hash = '#/separar';
       }
     };
     

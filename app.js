@@ -1224,7 +1224,7 @@ function ViewFinalizadas() {
           el('div', { class: 'muted' }, `Finalizada: ${fmtDateTime(r.finishedAt)} | Operador: ${r.operator}`),
           el('div', { class: 'status-chip status-ok' }, 'Finalizada')
         ]),
-        el('div', {}, el('button', { class: 'btn', onclick: () => openReport(r) }, 'Relatório'))
+        el('div', {}, el('button', { class: 'btn', onclick: () => openDetails(r) }, 'Detalhes'))
       ]));
     }
   }
@@ -1239,8 +1239,8 @@ function ViewFinalizadas() {
   return root;
 }
 
-function openReport(separation) {
-  // Navegar para a página de relatório
+function openDetails(separation) {
+  // Navegar para a página de detalhes
   location.hash = `#/report/${separation.orderId}`;
 }
 
@@ -1251,21 +1251,27 @@ function ViewReport(orderId) {
   const separation = getHistory().find(s => s.orderId === orderId);
   if (!separation) {
     return el('div', { class: 'card' }, [
-      el('h3', {}, 'Relatório não encontrado'),
+      el('h3', {}, 'Detalhes não encontrados'),
       el('p', { class: 'muted' }, 'A separação solicitada não foi encontrada no histórico.'),
       el('button', { class: 'btn', onclick: () => history.back() }, 'Voltar')
     ]);
   }
   
   const { itemsCatalog } = getCatalog();
-  const confirmedItems = separation.items.filter(it => it.confirmed);
-  const pendingItems = separation.items.filter(it => !it.confirmed);
   
-  // Header do relatório
+  // Calcular totais de oficiais e alternativos
+  let totalOficial = 0;
+  let totalAlternativo = 0;
+  separation.items.forEach(it => {
+    totalOficial += Number(it.attended || 0);
+    totalAlternativo += Number(it.attendedAlt || 0);
+  });
+  
+  // Header dos detalhes
   const headerCard = el('div', { class: 'card' }, [
     el('div', { style: 'display:flex; justify-content:space-between; align-items:center; margin-bottom:16px' }, [
       el('div', {}, [
-        el('h2', { style: 'margin:0; color:var(--brand)' }, 'Relatório de Separação'),
+        el('h2', { style: 'margin:0; color:var(--brand)' }, 'Detalhes da Separação'),
         el('div', { style: 'font-size:18px; font-weight:600; margin-top:8px' }, `${separation.orderId} • ${separation.productCode}`),
         el('div', { class: 'muted' }, separation.productDesc)
       ]),
@@ -1291,22 +1297,36 @@ function ViewReport(orderId) {
     ])
   ]);
   
-  // Resumo da separação
+  // Resumo da separação com totais
   const summaryCard = el('div', { class: 'card' }, [
-    el('h3', { style: 'margin:0 0 16px 0' }, 'Resumo da Separação'),
-    el('div', { style: 'display:flex; gap:16px; flex-wrap:wrap' }, [
-      el('div', { class: 'status-chip status-ok' }, `Confirmados: ${confirmedItems.length}`),
-      el('div', { class: 'status-chip status-pend' }, `Pendentes: ${pendingItems.length}`),
-      el('div', { class: 'status-chip status-sub' }, `Substituídos: ${separation.items.filter(it => it.substitution).length}`),
-      el('div', { class: 'status-chip', style: 'background:var(--brand); color:white' }, `Total: ${separation.items.length}`)
+    el('h3', { style: 'margin:0 0 16px 0' }, 'Resumo da Operação de Separação'),
+    el('div', { style: 'display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:16px' }, [
+      el('div', { style: 'background:#dcfce7; padding:16px; border-radius:8px; border:1px solid #bbf7d0' }, [
+        el('div', { style: 'font-weight:600; color:#166534; margin-bottom:4px' }, 'Quantidade Oficial'),
+        el('div', { style: 'font-size:24px; font-weight:700; color:#15803d' }, String(totalOficial))
+      ]),
+      el('div', { style: 'background:#dbeafe; padding:16px; border-radius:8px; border:1px solid #bfdbfe' }, [
+        el('div', { style: 'font-weight:600; color:#1e3a8a; margin-bottom:4px' }, 'Quantidade Alternativo'),
+        el('div', { style: 'font-size:24px; font-weight:700; color:#1e40af' }, String(totalAlternativo))
+      ]),
+      el('div', { style: 'background:#f3f4f6; padding:16px; border-radius:8px; border:1px solid #e5e7eb' }, [
+        el('div', { style: 'font-weight:600; color:#374151; margin-bottom:4px' }, 'Total Separado'),
+        el('div', { style: 'font-size:24px; font-weight:700; color:#111827' }, String(totalOficial + totalAlternativo))
+      ])
+    ]),
+    el('div', { style: 'display:flex; gap:16px; flex-wrap:wrap; margin-top:16px' }, [
+      el('div', { class: 'status-chip status-ok' }, `Itens: ${separation.items.length}`),
+      el('div', { class: 'status-chip status-sub' }, `Substituições: ${separation.items.filter(it => it.substitution).length}`)
     ])
   ]);
   
-  // Tabela de itens separados
+  // Tabela de itens separados com detalhes
   const itemsCard = el('div', { class: 'card' }, [
-    el('h3', { style: 'margin:0 0 16px 0' }, `Itens Separados (${confirmedItems.length}/${separation.items.length})`),
+    el('h3', { style: 'margin:0 0 16px 0' }, `Detalhes dos Itens Separados`),
     (() => {
-      if (confirmedItems.length === 0) {
+      const itemsWithAttended = separation.items.filter(it => (Number(it.attended || 0) + Number(it.attendedAlt || 0)) > 0);
+      
+      if (itemsWithAttended.length === 0) {
         return el('p', { class: 'muted' }, 'Nenhum item foi separado.');
       }
       
@@ -1315,28 +1335,34 @@ function ViewReport(orderId) {
         el('th', {}, '#'),
         el('th', {}, 'Código'),
         el('th', {}, 'Descrição'),
-        el('th', {}, 'Quantidade'),
+        el('th', {}, 'Qtde Original'),
+        el('th', {}, 'Oficial'),
+        el('th', {}, 'Alternativo'),
+        el('th', {}, 'Total Separado'),
         el('th', {}, 'Unidade'),
-        el('th', {}, 'Tipo'),
-        el('th', {}, 'Confirmado por'),
-        el('th', {}, 'Data/Hora')
+        el('th', {}, 'Data/Hora Separação')
       ]));
       
       const tbody = el('tbody');
-      confirmedItems.forEach((it, idx) => {
+      itemsWithAttended.forEach((it, idx) => {
         const curr = itemsCatalog.find(i => i.code === it.currentCode) || { description: it.description };
+        const oficial = Number(it.attended || 0);
+        const alternativo = Number(it.attendedAlt || 0);
+        const totalSeparado = oficial + alternativo;
+        
+        // Data/hora da separação (usar confirmedAt se disponível, senão finishedAt)
+        const separacaoDate = it.confirmedAt || separation.finishedAt || separation.startedAt;
+        
         const tr = el('tr');
         tr.appendChild(el('td', {}, String(idx + 1)));
         tr.appendChild(el('td', {}, it.currentCode));
         tr.appendChild(el('td', {}, curr.description));
         tr.appendChild(el('td', { style: 'text-align:right' }, String(it.quantity)));
+        tr.appendChild(el('td', { style: 'text-align:right; font-weight:600; color:#15803d' }, oficial > 0 ? String(oficial) : '-'));
+        tr.appendChild(el('td', { style: 'text-align:right; font-weight:600; color:#1e40af' }, alternativo > 0 ? String(alternativo) : '-'));
+        tr.appendChild(el('td', { style: 'text-align:right; font-weight:700' }, String(totalSeparado)));
         tr.appendChild(el('td', {}, it.unit));
-        tr.appendChild(el('td', {}, it.substitution ? 
-          el('span', { class: 'status-chip status-sub' }, `ALT de ${it.baseCode}`) : 
-          el('span', { class: 'status-chip status-ok' }, 'OFICIAL')
-        ));
-        tr.appendChild(el('td', {}, it.confirmedBy || '-'));
-        tr.appendChild(el('td', {}, it.confirmedAt ? fmtDateTime(it.confirmedAt) : '-'));
+        tr.appendChild(el('td', {}, separacaoDate ? fmtDateTime(separacaoDate) : '-'));
         tbody.appendChild(tr);
       });
       
@@ -1346,49 +1372,9 @@ function ViewReport(orderId) {
     })()
   ]);
   
-  // Itens pendentes (se houver)
-  let pendingCard = null;
-  if (pendingItems.length > 0) {
-    pendingCard = el('div', { class: 'card' }, [
-      el('h3', { style: 'margin:0 0 16px 0' }, `Itens Pendentes (${pendingItems.length})`),
-      (() => {
-        const table = el('table', { class: 'table' });
-        const thead = el('thead', {}, el('tr', {}, [
-          el('th', {}, '#'),
-          el('th', {}, 'Código'),
-          el('th', {}, 'Descrição'),
-          el('th', {}, 'Quantidade'),
-          el('th', {}, 'Unidade'),
-          el('th', {}, 'Tipo')
-        ]));
-        
-        const tbody = el('tbody');
-        pendingItems.forEach((it, idx) => {
-          const curr = itemsCatalog.find(i => i.code === it.currentCode) || { description: it.description };
-          const tr = el('tr');
-          tr.appendChild(el('td', {}, String(idx + 1)));
-          tr.appendChild(el('td', {}, it.currentCode));
-          tr.appendChild(el('td', {}, curr.description));
-          tr.appendChild(el('td', { style: 'text-align:right' }, String(it.quantity)));
-          tr.appendChild(el('td', {}, it.unit));
-          tr.appendChild(el('td', {}, it.substitution ? 
-            el('span', { class: 'status-chip status-sub' }, `ALT de ${it.baseCode}`) : 
-            el('span', { class: 'status-chip status-ok' }, 'OFICIAL')
-          ));
-          tbody.appendChild(tr);
-        });
-        
-        table.appendChild(thead);
-        table.appendChild(tbody);
-        return table;
-      })()
-    ]);
-  }
-  
   root.appendChild(headerCard);
   root.appendChild(summaryCard);
   root.appendChild(itemsCard);
-  if (pendingCard) root.appendChild(pendingCard);
   
   return root;
 }
@@ -1537,9 +1523,22 @@ function ViewRelatorios() {
     } else {
       for (const rec of rows) {
         const order = getOrders().find(o => o.id === rec.orderId) || { productCode: rec.productCode, productDesc: rec.productDesc };
-        const confirmed = rec.items.filter(i => i.confirmed).length;
-        const total = rec.items.length;
-        const progress = `${confirmed}/${total}`;
+        
+        // Calcular progresso baseado em quantidade (não confirmed)
+        const totalItems = rec.items.length;
+        const completedItems = rec.items.filter(i => {
+          const falta = remainingQtyOf(i);
+          return falta === 0;
+        }).length;
+        const progress = `${completedItems}/${totalItems}`;
+        
+        // Calcular totais
+        let totalOficial = 0;
+        let totalAlternativo = 0;
+        rec.items.forEach(it => {
+          totalOficial += Number(it.attended || 0);
+          totalAlternativo += Number(it.attendedAlt || 0);
+        });
         
         const tr = el('tr');
         const chk = el('input', { type: 'checkbox', 'data-id': rec.orderId });
@@ -1555,7 +1554,12 @@ function ViewRelatorios() {
         ));
         tr.appendChild(el('td', {}, fmtDateTime(rec.finishedAt)));
         tr.appendChild(el('td', {}, rec.operator));
-        tr.appendChild(el('td', {}, progress));
+        tr.appendChild(el('td', {}, [
+          el('div', {}, progress),
+          el('div', { style: 'font-size:11px; color:var(--muted); margin-top:2px' }, 
+            `OF: ${totalOficial} | ALT: ${totalAlternativo}`
+          )
+        ]));
         tbody.appendChild(tr);
       }
     }
@@ -1665,8 +1669,15 @@ function ViewRelatorios() {
     records.forEach((rec, idx) => {
       if (idx > 0) content += '<div class="page-break"></div>';
       
-      const confirmedItems = rec.items.filter(it => it.confirmed);
-      const pendingItems = rec.items.filter(it => !it.confirmed);
+      // Calcular totais
+      let totalOficial = 0;
+      let totalAlternativo = 0;
+      rec.items.forEach(it => {
+        totalOficial += Number(it.attended || 0);
+        totalAlternativo += Number(it.attendedAlt || 0);
+      });
+      
+      const itemsWithAttended = rec.items.filter(it => (Number(it.attended || 0) + Number(it.attendedAlt || 0)) > 0);
       
       content += `
         <div class="section">
@@ -1676,36 +1687,45 @@ function ViewRelatorios() {
           <p><strong>Início:</strong> ${fmtDateTime(rec.startedAt)}</p>
           <p><strong>Finalização:</strong> ${fmtDateTime(rec.finishedAt)}</p>
           <p><strong>Tipo:</strong> ${rec.finalizeMode === 'total' ? 'Finalizada' : 'Parcial'}</p>
+          <p><strong>Quantidade Oficial Separada:</strong> ${totalOficial}</p>
+          <p><strong>Quantidade Alternativo Separada:</strong> ${totalAlternativo}</p>
+          <p><strong>Total Separado:</strong> ${totalOficial + totalAlternativo}</p>
         </div>
         
         <div class="section">
-          <h3>Itens Separados (${confirmedItems.length}/${rec.items.length})</h3>
+          <h3>Itens Separados (${itemsWithAttended.length}/${rec.items.length})</h3>
           <table>
             <thead>
               <tr>
                 <th>#</th>
                 <th>Código</th>
                 <th>Descrição</th>
-                <th>Quantidade</th>
+                <th>Qtde Original</th>
+                <th>Oficial</th>
+                <th>Alternativo</th>
+                <th>Total Separado</th>
                 <th>Unidade</th>
-                <th>Tipo</th>
-                <th>Confirmado por</th>
                 <th>Data/Hora</th>
               </tr>
             </thead>
             <tbody>
-              ${confirmedItems.map((it, idx) => {
+              ${itemsWithAttended.map((it, idx) => {
                 const curr = itemsCatalog.find(i => i.code === it.currentCode) || { description: it.description };
+                const oficial = Number(it.attended || 0);
+                const alternativo = Number(it.attendedAlt || 0);
+                const totalSeparado = oficial + alternativo;
+                const separacaoDate = it.confirmedAt || rec.finishedAt || rec.startedAt;
                 return `
                   <tr>
                     <td>${idx + 1}</td>
                     <td>${it.currentCode}</td>
                     <td>${curr.description}</td>
                     <td>${it.quantity}</td>
+                    <td>${oficial > 0 ? oficial : '-'}</td>
+                    <td>${alternativo > 0 ? alternativo : '-'}</td>
+                    <td>${totalSeparado}</td>
                     <td>${it.unit}</td>
-                    <td>${it.substitution ? `ALT de ${it.baseCode}` : 'OFICIAL'}</td>
-                    <td>${it.confirmedBy || '-'}</td>
-                    <td>${it.confirmedAt ? fmtDateTime(it.confirmedAt) : '-'}</td>
+                    <td>${separacaoDate ? fmtDateTime(separacaoDate) : '-'}</td>
                   </tr>
                 `;
               }).join('')}
@@ -1713,41 +1733,6 @@ function ViewRelatorios() {
           </table>
         </div>
       `;
-      
-      if (pendingItems.length > 0) {
-        content += `
-          <div class="section">
-            <h3>Itens Pendentes (${pendingItems.length})</h3>
-            <table>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Código</th>
-                  <th>Descrição</th>
-                  <th>Quantidade</th>
-                  <th>Unidade</th>
-                  <th>Tipo</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${pendingItems.map((it, idx) => {
-                  const curr = itemsCatalog.find(i => i.code === it.currentCode) || { description: it.description };
-                  return `
-                    <tr>
-                      <td>${idx + 1}</td>
-                      <td>${it.currentCode}</td>
-                      <td>${curr.description}</td>
-                      <td>${it.quantity}</td>
-                      <td>${it.unit}</td>
-                      <td>${it.substitution ? `ALT de ${it.baseCode}` : 'OFICIAL'}</td>
-                    </tr>
-                  `;
-                }).join('')}
-              </tbody>
-            </table>
-          </div>
-        `;
-      }
     });
     
     return content;
@@ -1755,19 +1740,30 @@ function ViewRelatorios() {
 
   function generateCSVContent(records) {
     const { itemsCatalog } = getCatalog();
-    let csv = 'OP,Produto,Operação,Operador,Início,Finalização,Tipo,Item,Código,Descrição,Quantidade,Unidade,Tipo Item,Status,Confirmado por,Data/Hora\n';
+    let csv = 'OP,Produto,Operação,Operador,Início,Finalização,Tipo,Qtde Oficial Total,Qtde Alternativo Total,Total Separado,Item,Código,Descrição,Qtde Original,Oficial,Alternativo,Total Separado,Unidade,Data/Hora Separação\n';
     
     records.forEach(rec => {
-      const baseInfo = `"${rec.orderId}","${rec.productCode}","${rec.operacao || 'N/A'}","${rec.operator}","${fmtDateTime(rec.startedAt)}","${fmtDateTime(rec.finishedAt)}","${rec.finalizeMode === 'total' ? 'Finalizada' : 'Parcial'}"`;
+      // Calcular totais
+      let totalOficial = 0;
+      let totalAlternativo = 0;
+      rec.items.forEach(it => {
+        totalOficial += Number(it.attended || 0);
+        totalAlternativo += Number(it.attendedAlt || 0);
+      });
       
-      rec.items.forEach((it, idx) => {
+      const baseInfo = `"${rec.orderId}","${rec.productCode}","${rec.operacao || 'N/A'}","${rec.operator}","${fmtDateTime(rec.startedAt)}","${fmtDateTime(rec.finishedAt)}","${rec.finalizeMode === 'total' ? 'Finalizada' : 'Parcial'}","${totalOficial}","${totalAlternativo}","${totalOficial + totalAlternativo}"`;
+      
+      const itemsWithAttended = rec.items.filter(it => (Number(it.attended || 0) + Number(it.attendedAlt || 0)) > 0);
+      
+      itemsWithAttended.forEach((it, idx) => {
         const curr = itemsCatalog.find(i => i.code === it.currentCode) || { description: it.description };
-        const status = it.confirmed ? 'SEPARADO' : 'PENDENTE';
-        const itemType = it.substitution ? `ALT de ${it.baseCode}` : 'OFICIAL';
-        const confirmedBy = it.confirmedBy || '';
-        const confirmedAt = it.confirmedAt ? fmtDateTime(it.confirmedAt) : '';
+        const oficial = Number(it.attended || 0);
+        const alternativo = Number(it.attendedAlt || 0);
+        const totalSeparado = oficial + alternativo;
+        const separacaoDate = it.confirmedAt || rec.finishedAt || rec.startedAt;
+        const dataHora = separacaoDate ? fmtDateTime(separacaoDate) : '';
         
-        csv += `${baseInfo},"${idx + 1}","${it.currentCode}","${curr.description}","${it.quantity}","${it.unit}","${itemType}","${status}","${confirmedBy}","${confirmedAt}"\n`;
+        csv += `${baseInfo},"${idx + 1}","${it.currentCode}","${curr.description}","${it.quantity}","${oficial}","${alternativo}","${totalSeparado}","${it.unit}","${dataHora}"\n`;
       });
     });
     
